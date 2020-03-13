@@ -6,23 +6,23 @@
 trigger:
   - master
   
-  pool:
-    vmImage: 'ubuntu-latest'
+pool:
+  vmImage: 'ubuntu-latest'
   
-  steps:
-  - task: DotNetCoreCLI@2
-    inputs:
-      command: 'build'
-  - task: DotNetCoreCLI@2
-    inputs:
-      command: 'test'
-  - task: NuGetCommand@2
-    inputs:
-      command: 'pack'
-      packagesToPack: 'Calinga.NET/Calinga.NET.csproj'
-      versioningScheme: 'off'
-      includeReferencedProjects: true
-  - task: PublishBuildArtifacts@1
-    inputs:
-      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-      ArtifactName: 'drop'
+steps:
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'test'
+- task: NuGetCommand@2
+  inputs:
+    command: 'pack'
+    packagesToPack: 'Calinga.NET/Calinga.NET.csproj'
+    versioningScheme: 'off'
+    includeReferencedProjects: true
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'drop'
