@@ -2,7 +2,7 @@
 
 using System.Threading.Tasks;
 
-namespace Calinga.Infrastructure
+namespace Calinga.NET.Infrastructure
 {
     public interface ICachingService
     {

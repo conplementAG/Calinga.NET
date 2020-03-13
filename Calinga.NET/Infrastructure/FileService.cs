@@ -4,7 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Calinga.Infrastructure
+namespace Calinga.NET.Infrastructure
 {
     public class FileService : IFileService
     {

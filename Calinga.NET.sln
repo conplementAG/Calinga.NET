@@ -7,10 +7,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Calinga.NET", "Calinga.NET\
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "1-SDK", "1-SDK", "{CB49E83C-D95C-4814-ABAD-EE434A532ACA}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "2-Infrastructure", "2-Infrastructure", "{4391D5E6-E5F5-480B-9378-86B980A4693C}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Calinga.Infrastructure", "Calinga.Infrastructure\Calinga.Infrastructure.csproj", "{F5B2572B-BA5C-4EC2-A9F6-B0CE67CC4703}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Calinga.NET.Tests", "Calinga.NET.Tests\Calinga.NET.Tests.csproj", "{14C31C10-24B7-42E0-BF4B-5A59AD808B46}"
 EndProject
 Global
@@ -23,10 +19,6 @@ Global
 		{C9FB634A-5F64-41D6-91E9-74C304824FD2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C9FB634A-5F64-41D6-91E9-74C304824FD2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C9FB634A-5F64-41D6-91E9-74C304824FD2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F5B2572B-BA5C-4EC2-A9F6-B0CE67CC4703}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F5B2572B-BA5C-4EC2-A9F6-B0CE67CC4703}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F5B2572B-BA5C-4EC2-A9F6-B0CE67CC4703}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F5B2572B-BA5C-4EC2-A9F6-B0CE67CC4703}.Release|Any CPU.Build.0 = Release|Any CPU
 		{14C31C10-24B7-42E0-BF4B-5A59AD808B46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{14C31C10-24B7-42E0-BF4B-5A59AD808B46}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{14C31C10-24B7-42E0-BF4B-5A59AD808B46}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -37,7 +29,6 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{C9FB634A-5F64-41D6-91E9-74C304824FD2} = {CB49E83C-D95C-4814-ABAD-EE434A532ACA}
-		{F5B2572B-BA5C-4EC2-A9F6-B0CE67CC4703} = {4391D5E6-E5F5-480B-9378-86B980A4693C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {436556B4-F005-4201-AC8E-2CF58CFE66A3}

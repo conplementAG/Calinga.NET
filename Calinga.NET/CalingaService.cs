@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-using Calinga.Infrastructure;
-using Calinga.Infrastructure.Exceptions;
-using KeyNotFoundException = Calinga.Infrastructure.Exceptions.KeyNotFoundException;
+using Calinga.NET.Infrastructure;
+using Calinga.NET.Infrastructure.Exceptions;
+using KeyNotFoundException = Calinga.NET.Infrastructure.Exceptions.KeyNotFoundException;
 
 namespace Calinga.NET
 {

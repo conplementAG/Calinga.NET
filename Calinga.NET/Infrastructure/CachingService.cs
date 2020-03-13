@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Newtonsoft.Json;
 
-namespace Calinga.Infrastructure
+namespace Calinga.NET.Infrastructure
 {
     public class CachingService : ICachingService
     {

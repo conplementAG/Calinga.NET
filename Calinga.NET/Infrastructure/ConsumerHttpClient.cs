@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Calinga.Infrastructure.Exceptions;
+using Calinga.NET.Infrastructure.Exceptions;
 using Newtonsoft.Json;
 
-namespace Calinga.Infrastructure
+namespace Calinga.NET.Infrastructure
 {
     public class ConsumerHttpClient : IConsumerHttpClient
     {

@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Calinga.Infrastructure\Calinga.Infrastructure.csproj" />
     <ProjectReference Include="..\Calinga.NET\Calinga.NET.csproj" />
   </ItemGroup>
 

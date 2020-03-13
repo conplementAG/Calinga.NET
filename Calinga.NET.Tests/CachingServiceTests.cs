@@ -5,7 +5,7 @@ using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-using Calinga.Infrastructure;
+using Calinga.NET.Infrastructure;
 
 namespace Calinga.NET.Tests
 {

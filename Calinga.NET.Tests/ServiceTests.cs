@@ -8,9 +8,9 @@ using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-using Calinga.Infrastructure;
-using Calinga.Infrastructure.Exceptions;
-using KeyNotFoundException = Calinga.Infrastructure.Exceptions.KeyNotFoundException;
+using Calinga.NET.Infrastructure;
+using Calinga.NET.Infrastructure.Exceptions;
+using KeyNotFoundException = Calinga.NET.Infrastructure.Exceptions.KeyNotFoundException;
 
 namespace Calinga.NET.Tests
 {

@@ -1,4 +1,4 @@
-﻿namespace Calinga.Infrastructure
+﻿namespace Calinga.NET.Infrastructure
 {
     public class CalingaServiceSettings
     {

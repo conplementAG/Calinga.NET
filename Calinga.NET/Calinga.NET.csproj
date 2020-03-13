@@ -5,10 +5,13 @@
     <LangVersion>8.0</LangVersion>
     <Nullable>enable</Nullable>
     <PackageId>Calinga.NET</PackageId>
+    <Description>Library to integrate Calinga in .NET projects</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Calinga.Infrastructure\Calinga.Infrastructure.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="3.1.2" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="3.1.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
   </ItemGroup>
 
 </Project>

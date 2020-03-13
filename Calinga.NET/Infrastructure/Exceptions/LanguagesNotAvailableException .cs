@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Calinga.Infrastructure.Exceptions
+namespace Calinga.NET.Infrastructure.Exceptions
 {
     [Serializable]
     public class LanguagesNotAvailableException : Exception
