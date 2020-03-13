@@ -14,9 +14,9 @@ steps:
   inputs:
     command: 'build'
 
-- task: NuGetCommand@2
+
+- task: DotNetCoreCLI@2
   inputs:
     command: 'pack'
     packagesToPack: 'Calinga.NET/Calinga.NET.csproj'
     versioningScheme: 'off'
-    includeReferencedProjects: true
