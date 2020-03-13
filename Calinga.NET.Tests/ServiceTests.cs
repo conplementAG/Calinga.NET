@@ -149,7 +149,6 @@ namespace Calinga.NET.Tests
             translate.Should().Throw<TranslationsNotAvailableException>();
         }
 
-
         private static CalingaServiceSettings TestCalingaServiceSettings => new CalingaServiceSettings
         {
             Tenant = "SDK",
