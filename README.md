@@ -10,7 +10,7 @@ Package to connect and use the calinga service in .NET applications
  ## ASP.NET Core integration
  
 1. Install the `Calinga.NET` nuget package
-2. Extend your `appsettings.js` with:
+2. Extend your `appsettings.json` with:
 ```json
       "CalingaServiceSettings": {
             "Tenant": <YOUR_TENANT>,
