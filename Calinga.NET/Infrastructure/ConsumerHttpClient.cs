@@ -11,7 +11,7 @@ namespace Calinga.NET.Infrastructure
 {
     public class ConsumerHttpClient : IConsumerHttpClient
     {
-        private const string ConsumerBaseUrl = "https://api.calinga.io/v2";
+        private const string ConsumerBaseUrl = "https://api.calinga.io/v3";
 
         private readonly CalingaServiceSettings _settings;
 
@@ -26,7 +26,7 @@ namespace Calinga.NET.Infrastructure
             {
                 using (var client = CreateHttpClient())
                 {
-                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Tenant}/{_settings.Project}/languages/{language}");
+                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}");
 
                     var responseBody = await GetResponseBody(client, url).ConfigureAwait(false);
                     return CreateTranslationsDictionary(responseBody);
@@ -44,7 +44,7 @@ namespace Calinga.NET.Infrastructure
             {
                 using (var client = CreateHttpClient())
                 {
-                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Tenant}/{_settings.Project}/languages");
+                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
                     var responseBody = await GetResponseBody(client, url).ConfigureAwait(false);
 
                     return MapGetLanguagesResult(responseBody);
