@@ -12,7 +12,7 @@ namespace Calinga.NET.Infrastructure
 
         public FileService(CalingaServiceSettings settings)
         {
-            _filePath = Path.Combine(new [] {settings.CacheDirectory, settings.Project, settings.Version});
+            _filePath = Path.Combine(new [] {settings.CacheDirectory, settings.Organization, settings.Team, settings.Project});
         }
 
         public async Task<string> GetJsonAsync(string language)

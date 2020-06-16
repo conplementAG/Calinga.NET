@@ -13,10 +13,10 @@ Package to connect and use the calinga service in .NET applications
 2. Extend your `appsettings.json` with:
 ```json
       "CalingaServiceSettings": {
-            "Tenant": <YOUR_TENANT>,
+            "Organization": <YOUR_ORGANIZATION>,
+            "Team": <YOUR_TEAM>,
             "Project": <YOUR_PROJECT>,
             "ApiToken": <YOUR_TOKEN>,
-            "Version": "v1",
             "IsDevMode": false,
             "CacheDirectory":  "CacheFiles"
           }

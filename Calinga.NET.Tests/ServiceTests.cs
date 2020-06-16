@@ -151,13 +151,13 @@ namespace Calinga.NET.Tests
 
         private static CalingaServiceSettings TestCalingaServiceSettings => new CalingaServiceSettings
         {
-            Tenant = "SDK",
+            Organization = "SDK",
+
+            Team = "Default Team",
 
             Project = "SampleSDK",
 
             ApiToken = "761dc484a4051e1290c7d48574e09978",
-
-            Version = "v1",
 
             IsDevMode = false,
 

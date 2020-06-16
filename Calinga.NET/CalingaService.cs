@@ -60,7 +60,7 @@ namespace Calinga.NET
         {
             Guard.IsNotNull(setting, nameof(setting));
             Guard.IsNotNullOrWhiteSpace(setting.Project);
-            Guard.IsNotNullOrWhiteSpace(setting.Tenant);
+            Guard.IsNotNullOrWhiteSpace(setting.Organization);
             Guard.IsNotNullOrWhiteSpace(setting.CacheDirectory);
         }
     }
