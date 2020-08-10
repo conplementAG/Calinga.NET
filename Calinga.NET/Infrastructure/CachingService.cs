@@ -18,7 +18,7 @@ namespace Calinga.NET.Infrastructure
         private readonly IConsumerHttpClient _consumerHttpClient;
         private readonly IFileService _fileService;
         private readonly ConcurrentDictionary<string, bool> _allKeys = new ConcurrentDictionary<string, bool>();
-        
+
         private const string LanguagesCacheKey = "Languages";
 
         public CachingService(IConsumerHttpClient consumerHttpClient, IFileService fileService)
@@ -28,9 +28,11 @@ namespace Calinga.NET.Infrastructure
             _fileService = fileService;
         }
 
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslations(string language)
+        public async Task<IReadOnlyDictionary<string, string>> GetTranslations(string language, bool includeDrafts)
         {
-            var cacheKey = Invariant($"Language_{language}");
+            var key = Invariant($"Language_{language}");
+
+            var cacheKey = includeDrafts ? Invariant($"{key}_drafts") : key;
             object translations;
             try
             {
@@ -78,13 +80,13 @@ namespace Calinga.NET.Infrastructure
 
         private void StoreInCache(object data, string cacheKey)
         {
-            _allKeys.TryAdd(cacheKey, true); 
+            _allKeys.TryAdd(cacheKey, true);
             _translationsCache.Set(cacheKey, data, new MemoryCacheEntryOptions());
         }
 
-        private async Task StoreInFileAsync( string language, object translations)
+        private async Task StoreInFileAsync(string language, object translations)
         {
-           await  _fileService.SaveTranslationsAsync(language, JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
+            await _fileService.SaveTranslationsAsync(language, JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
         }
 
         private string RemoveKey(string key)

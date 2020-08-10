@@ -32,7 +32,7 @@ namespace Calinga.NET.Tests
         public async Task GetTranslations_ShouldGetTranslationsFromCalingaService()
         {
             // Arrange & Act
-            var translations = await _cachingService.GetTranslations(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await _cachingService.GetTranslations(TestData.Language_DE, false).ConfigureAwait(false);
 
             // Assert
             translations.ContainsKey(TestData.Key_1).Should().BeTrue();
@@ -45,7 +45,7 @@ namespace Calinga.NET.Tests
         public async Task GetTranslations_ShouldGetTranslationsFromCalingaService_AndSaveInFile()
         {
             // Arrange & Act
-            var translations = await _cachingService.GetTranslations(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await _cachingService.GetTranslations(TestData.Language_DE, false).ConfigureAwait(false);
 
             // Assert
             translations.ContainsKey(TestData.Key_1).Should().BeTrue();
@@ -60,11 +60,11 @@ namespace Calinga.NET.Tests
         public async Task GetTranslations_ShouldGetTranslationsFromCache()
         {
             // Arrange
-            var translations = await _cachingService.GetTranslations(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await _cachingService.GetTranslations(TestData.Language_DE, false).ConfigureAwait(false);
             await _consumerHttpClient.Received().GetTranslationsAsync(Arg.Any<string>()).ConfigureAwait(false);
 
             // Act
-            var secondCallTranslations = await _cachingService.GetTranslations(TestData.Language_DE).ConfigureAwait(false);
+            var secondCallTranslations = await _cachingService.GetTranslations(TestData.Language_DE, false).ConfigureAwait(false);
 
             // Assert
             _consumerHttpClient.DidNotReceive();

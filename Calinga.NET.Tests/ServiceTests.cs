@@ -23,8 +23,8 @@ namespace Calinga.NET.Tests
         public void Init()
         {
             _cachingService = Substitute.For<ICachingService>();
-            _cachingService.GetTranslations(TestData.Language_DE).Returns(TestData.Translations_De);
-            _cachingService.GetTranslations(TestData.Language_EN).Returns(TestData.Translations_En);
+            _cachingService.GetTranslations(TestData.Language_DE, TestCalingaServiceSettings.IncludeDrafts).Returns(TestData.Translations_De);
+            _cachingService.GetTranslations(TestData.Language_EN, TestCalingaServiceSettings.IncludeDrafts).Returns(TestData.Translations_En);
             _cachingService.GetLanguages().Returns(TestData.Languages);
         }
 
@@ -139,7 +139,7 @@ namespace Calinga.NET.Tests
         {
             // Arrange
             var cachingService = Substitute.For<ICachingService>();
-            cachingService.GetTranslations(TestData.Language_DE).Returns((IReadOnlyDictionary<string, string>)null!);
+            cachingService.GetTranslations(TestData.Language_DE, TestCalingaServiceSettings.IncludeDrafts).Returns((IReadOnlyDictionary<string, string>)null!);
             var service = new CalingaService(cachingService, TestCalingaServiceSettings);
 
             // Act
@@ -159,7 +159,7 @@ namespace Calinga.NET.Tests
 
             ApiToken = "761dc484a4051e1290c7d48574e09978",
 
-            IsDevMode = false,
+            IncludeDrafts = false,
 
             CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
         };

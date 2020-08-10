@@ -12,11 +12,13 @@ namespace Calinga.NET
     public class CalingaService : ICalingaService
     {
         private readonly ICachingService _cachingService;
+        private readonly CalingaServiceSettings _settings;
 
         public CalingaService(ICachingService cachingService, CalingaServiceSettings settings)
         {
             ValidateSettings(settings);
             _cachingService = cachingService;
+            _settings = settings;
         }
 
         public CalingaService(CalingaServiceSettings settings)
@@ -37,7 +39,7 @@ namespace Calinga.NET
             Guard.IsNotNullOrWhiteSpace(language);
             Guard.IsNotNullOrWhiteSpace(key);
 
-            var container = await _cachingService.GetTranslations(language).ConfigureAwait(false);
+            var container = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
             if (container == null) throw new TranslationsNotAvailableException(FormattableString.Invariant($"Translations are not available"));
 
             var translation = container.FirstOrDefault(k => k.Key == key);

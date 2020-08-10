@@ -26,7 +26,8 @@ namespace Calinga.NET.Infrastructure
             {
                 using (var client = CreateHttpClient())
                 {
-                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}");
+                    string queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
+                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
 
                     var responseBody = await GetResponseBody(client, url).ConfigureAwait(false);
                     return CreateTranslationsDictionary(responseBody);
@@ -34,7 +35,7 @@ namespace Calinga.NET.Infrastructure
             }
             catch (HttpRequestException ex)
             {
-               throw new TranslationsNotAvailableException("Failed to fetch translations", ex);
+                throw new TranslationsNotAvailableException("Failed to fetch translations", ex);
             }
         }
 
@@ -73,7 +74,7 @@ namespace Calinga.NET.Infrastructure
 
         private static IEnumerable<string> MapGetLanguagesResult(string json)
         {
-            return JsonConvert.DeserializeObject<Dictionary<string, bool>>(json).Select(l=>l.Key);
+            return JsonConvert.DeserializeObject<Dictionary<string, bool>>(json).Select(l => l.Key);
         }
 
         private HttpClient CreateHttpClient()

@@ -10,7 +10,7 @@
 
         public string ApiToken { get; set; }
 
-        public bool IsDevMode { get; set; }
+        public bool IncludeDrafts { get; set; }
 
         public string CacheDirectory { get; set; }
     }
