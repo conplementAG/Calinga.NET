@@ -39,6 +39,7 @@ namespace Calinga.NET
             Guard.IsNotNullOrWhiteSpace(language);
             Guard.IsNotNullOrWhiteSpace(key);
 
+            if (_settings.IsDevMode) return key;
             var container = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
             if (container == null) throw new TranslationsNotAvailableException(FormattableString.Invariant($"Translations are not available"));
 

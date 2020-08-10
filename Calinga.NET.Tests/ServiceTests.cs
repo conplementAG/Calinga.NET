@@ -161,6 +161,8 @@ namespace Calinga.NET.Tests
 
             IncludeDrafts = false,
 
+            IsDevMode = false,
+
             CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
         };
     }
