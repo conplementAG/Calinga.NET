@@ -18,6 +18,7 @@ Package to connect and use the calinga service in .NET applications
             "Project": <YOUR_PROJECT>,
             "ApiToken": <YOUR_TOKEN>,
             "IsDevMode": false,
+            "IncludeDrafts": false,
             "CacheDirectory":  "CacheFiles"
           }
 ```
