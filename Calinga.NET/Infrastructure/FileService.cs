@@ -43,7 +43,7 @@ namespace Calinga.NET.Infrastructure
             Directory.CreateDirectory(_filePath);
             if (File.Exists(path)) { File.Delete(path); }
 
-            using (var outputFile = new StreamWriter(path))
+            using (var outputFile = new StreamWriter(new FileStream(path, FileMode.Open)))
             {
                 await outputFile.WriteAsync(json).ConfigureAwait(false);
             }
