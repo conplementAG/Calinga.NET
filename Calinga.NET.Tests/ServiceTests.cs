@@ -18,13 +18,15 @@ namespace Calinga.NET.Tests
     public class ServiceTests
     {
         private ICachingService _cachingService;
+        private static CalingaServiceSettings _testCalingaServiceSettings;
 
-        [TestInitialize]
+       [TestInitialize]
         public void Init()
         {
+            _testCalingaServiceSettings = CreateSettings();
             _cachingService = Substitute.For<ICachingService>();
-            _cachingService.GetTranslations(TestData.Language_DE, TestCalingaServiceSettings.IncludeDrafts).Returns(TestData.Translations_De);
-            _cachingService.GetTranslations(TestData.Language_EN, TestCalingaServiceSettings.IncludeDrafts).Returns(TestData.Translations_En);
+            _cachingService.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts).Returns(TestData.Translations_De);
+            _cachingService.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts).Returns(TestData.Translations_En);
             _cachingService.GetLanguages().Returns(TestData.Languages);
         }
 
@@ -42,7 +44,7 @@ namespace Calinga.NET.Tests
         public void Translate_ShouldThrown_WhenKeyEmpty()
         {
             // Arrange
-            var service = new CalingaService(TestCalingaServiceSettings);
+            var service = new CalingaService(_testCalingaServiceSettings);
 
             // Act
             Func<Task> getTranslations = async () => await service.TranslateAsync("", TestData.Language_DE).ConfigureAwait(false);
@@ -55,7 +57,7 @@ namespace Calinga.NET.Tests
         public void Translate_ShouldThrown_WhenKeyLanguageEmpty()
         {
             // Arrange
-            var service = new CalingaService(TestCalingaServiceSettings);
+            var service = new CalingaService(_testCalingaServiceSettings);
 
             // Act
             Func<Task> getTranslations = async () => await service.TranslateAsync(TestData.Key_1, "").ConfigureAwait(false);
@@ -68,7 +70,7 @@ namespace Calinga.NET.Tests
         public void CreateContext_ShouldThrown_WhenKeyLanguageEmpty()
         {
             // Arrange
-            var service = new CalingaService(TestCalingaServiceSettings);
+            var service = new CalingaService(_testCalingaServiceSettings);
 
             // Act
             Action createContext = () => service.CreateContext("");
@@ -81,7 +83,7 @@ namespace Calinga.NET.Tests
         public void ContextTranslate_ShouldThrown_WhenKeyLanguageEmpty()
         {
             // Arrange
-            var service = new CalingaService(TestCalingaServiceSettings);
+            var service = new CalingaService(_testCalingaServiceSettings);
             var context = new LanguageContext(TestData.Language_DE, service);
 
             // Act
@@ -95,7 +97,7 @@ namespace Calinga.NET.Tests
         public async Task Translate_ShouldReturnTranslationFromTestData()
         {
             // Arrange
-            var service = new CalingaService(_cachingService, TestCalingaServiceSettings);
+            var service = new CalingaService(_cachingService, _testCalingaServiceSettings);
 
             // Act
             var translation = await service.TranslateAsync(TestData.Key_1, TestData.Language_DE).ConfigureAwait(false);
@@ -109,7 +111,7 @@ namespace Calinga.NET.Tests
         public async Task GetLanguages_ShouldReturnLanguagesFromTestData()
         {
             // Arrange
-            var service = new CalingaService(_cachingService, TestCalingaServiceSettings);
+            var service = new CalingaService(_cachingService, _testCalingaServiceSettings);
 
             // Act
             var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
@@ -124,7 +126,7 @@ namespace Calinga.NET.Tests
         public void Translate_ShouldThrowException_WhenKeyNotExists()
         {
             // Arrange
-            var service = new CalingaService(_cachingService, TestCalingaServiceSettings);
+            var service = new CalingaService(_cachingService, _testCalingaServiceSettings);
             var key = Invariant($"{TestData.Key_1}_Test");
 
             // Act
@@ -139,8 +141,8 @@ namespace Calinga.NET.Tests
         {
             // Arrange
             var cachingService = Substitute.For<ICachingService>();
-            cachingService.GetTranslations(TestData.Language_DE, TestCalingaServiceSettings.IncludeDrafts).Returns((IReadOnlyDictionary<string, string>)null!);
-            var service = new CalingaService(cachingService, TestCalingaServiceSettings);
+            cachingService.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts).Returns((IReadOnlyDictionary<string, string>)null!);
+            var service = new CalingaService(cachingService, _testCalingaServiceSettings);
 
             // Act
             Func<Task> translate = async () => await service.TranslateAsync(TestData.Key_1, TestData.Language_DE).ConfigureAwait(false);
@@ -149,7 +151,40 @@ namespace Calinga.NET.Tests
             translate.Should().Throw<TranslationsNotAvailableException>();
         }
 
-        private static CalingaServiceSettings TestCalingaServiceSettings => new CalingaServiceSettings
+        [TestMethod]
+        public async Task GetTranslations_ShouldReturnTranslationsFromTestData()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService, _testCalingaServiceSettings);
+
+            // Act
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+
+            // Assert
+            translations.Count.Should().Be(2);
+            translations.Should().Contain(t => t.Key.Equals(TestData.Key_1));
+            translations.Should().Contain(t => t.Value.Contains(TestData.Translation_Key_1));
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ShouldReturnKeysFromTestData_WhenDevMode()
+        {
+            // Arrange
+            var setting = CreateSettings(true);
+            var service = new CalingaService(_cachingService, setting);
+
+            // Act
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+
+            // Assert
+            translations.Count.Should().Be(2);
+            translations.Should().Contain(t => t.Key.Equals(TestData.Key_1));
+            translations.Should().Contain(t => t.Value.Equals(TestData.Key_1));
+            translations.Should().Contain(t => t.Key.Equals(TestData.Key_2));
+            translations.Should().Contain(t => t.Value.Equals(TestData.Key_2));
+        }
+
+        private static CalingaServiceSettings CreateSettings(bool isDevMode = false) => new CalingaServiceSettings
         {
             Organization = "SDK",
 
@@ -161,7 +196,7 @@ namespace Calinga.NET.Tests
 
             IncludeDrafts = false,
 
-            IsDevMode = false,
+            IsDevMode = isDevMode,
 
             CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
         };

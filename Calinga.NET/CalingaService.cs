@@ -49,6 +49,15 @@ namespace Calinga.NET
             return translation.Value;
         }
 
+        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
+        {
+            Guard.IsNotNullOrWhiteSpace(language);
+            var container = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
+            if (container == null) throw new TranslationsNotAvailableException(FormattableString.Invariant($"Translations are not available"));
+
+            return !_settings.IsDevMode ? container : container.ToDictionary(k => k.Key, k => k.Key);
+        }
+
         public Task<IEnumerable<string>> GetLanguagesAsync()
         {
             return _cachingService.GetLanguages();
