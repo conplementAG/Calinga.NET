@@ -1,4 +1,6 @@
 # Calinga.NET
+[![NuGet](https://img.shields.io/nuget/v/Calinga.Net)](https://img.shields.io/nuget/v/Calinga.Net)
+
 Package to connect and use the calinga service in .NET applications
  
 ## General usage
