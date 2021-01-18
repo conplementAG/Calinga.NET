@@ -8,7 +8,7 @@ namespace Calinga.NET.Infrastructure
     {
         Task<IReadOnlyDictionary<string, string>> GetTranslations(string language, bool includeDrafts);
 
-        Task<IEnumerable<string>> GetLanguages();
+        Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations);
 
         void ClearCache();
     }

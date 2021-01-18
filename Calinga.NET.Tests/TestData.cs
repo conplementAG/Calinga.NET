@@ -13,13 +13,13 @@ namespace Calinga.NET.Tests
         internal const string Translation_Key_1 = "translation for key 1";
         internal const string Translation_Key_2 = "translation for key 1";
 
-        internal static Dictionary<string, string> Translations_De => CreateTranslations(Language_DE);
+        internal static IReadOnlyDictionary<string, string> Translations_De => CreateTranslations(Language_DE);
 
-        internal static Dictionary<string, string> Translations_En => CreateTranslations(Language_EN);
+        internal static IReadOnlyDictionary<string, string> Translations_En => CreateTranslations(Language_EN);
 
         internal static IEnumerable<string> Languages => new List<string> { Language_DE, Language_EN };
 
-        private static Dictionary<string, string> CreateTranslations(string language) => new Dictionary<string, string>
+        private static IReadOnlyDictionary<string, string> CreateTranslations(string language) => new Dictionary<string, string>
         {
             {Key_1, Invariant($"{language} {Translation_Key_1}")},
             {Key_2, Invariant($"{language} {Translation_Key_2}")}

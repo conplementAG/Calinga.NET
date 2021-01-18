@@ -15,5 +15,7 @@
         public bool IsDevMode { get; set; }
 
         public string CacheDirectory { get; set; }
+
+        public string ConsumerApiBaseUrl { get; set; } = "https://api.calinga.io/v3";
     }
 }

@@ -11,31 +11,43 @@ namespace Calinga.NET.Infrastructure
 {
     public class ConsumerHttpClient : IConsumerHttpClient
     {
-        private const string ConsumerBaseUrl = "https://api.calinga.io/v3";
+        private const string API_TOKEN_HEADER_NAME = "api-token";
 
         private readonly CalingaServiceSettings _settings;
+        private readonly HttpClient _httpClient;
 
         public ConsumerHttpClient(CalingaServiceSettings settings)
+            : this(settings, new HttpClient())
         {
             _settings = settings;
         }
 
+        public ConsumerHttpClient(CalingaServiceSettings settings, HttpClient httpClient)
+        {
+            _settings = settings;
+            _httpClient = httpClient;
+
+            EnsureApiTokenHeaderIsSet();
+        }
+
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
         {
-            try
-            {
-                using (var client = CreateHttpClient())
-                {
-                    string queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
-                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
+            string queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
+            var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
 
-                    var responseBody = await GetResponseBody(client, url).ConfigureAwait(false);
-                    return CreateTranslationsDictionary(responseBody);
-                }
-            }
-            catch (HttpRequestException ex)
+            var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+            if (response.IsSuccessStatusCode)
             {
-                throw new TranslationsNotAvailableException("Failed to fetch translations", ex);
+                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                return CreateTranslationsDictionary(body);
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                throw new AuthorizationFailedException();
+            }
+            else
+            {
+                throw new TranslationsNotAvailableException("Failed to fetch translations");
             }
         }
 
@@ -43,13 +55,10 @@ namespace Calinga.NET.Infrastructure
         {
             try
             {
-                using (var client = CreateHttpClient())
-                {
-                    var url = Invariant($"{ConsumerBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
-                    var responseBody = await GetResponseBody(client, url).ConfigureAwait(false);
+                var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
+                var responseBody = await GetResponseBody(url).ConfigureAwait(false);
 
-                    return MapGetLanguagesResult(responseBody);
-                }
+                return MapGetLanguagesResult(responseBody);
             }
             catch (HttpRequestException ex)
             {
@@ -59,9 +68,9 @@ namespace Calinga.NET.Infrastructure
 
         #region private static Methods
 
-        private static async Task<string> GetResponseBody(HttpClient client, string url)
+        private async Task<string> GetResponseBody(string url)
         {
-            var response = await client.GetAsync(url).ConfigureAwait(false);
+            var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -77,12 +86,12 @@ namespace Calinga.NET.Infrastructure
             return JsonConvert.DeserializeObject<Dictionary<string, bool>>(json).Select(l => l.Key);
         }
 
-        private HttpClient CreateHttpClient()
+        private void EnsureApiTokenHeaderIsSet()
         {
-            var httpClient = new HttpClient();
-            httpClient.DefaultRequestHeaders.Add("api-token", _settings.ApiToken);
-
-            return httpClient;
+            if (!_httpClient.DefaultRequestHeaders.Contains(API_TOKEN_HEADER_NAME))
+            {
+                _httpClient.DefaultRequestHeaders.Add(API_TOKEN_HEADER_NAME, _settings.ApiToken);
+            }
         }
 
         #endregion private static Methods
