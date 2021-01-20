@@ -29,14 +29,12 @@ namespace Calinga.NET.Infrastructure
             {
                 return (IReadOnlyDictionary<string, string>)translationsFromCache;
             }
-            else
-            {
-                var translationsFromFile = await _fileService.ReadCacheFileAsync(language).ConfigureAwait(false);
 
-                StoreInCache(cacheKey, translationsFromFile);
+            var translationsFromFile = await _fileService.ReadCacheFileAsync(language).ConfigureAwait(false);
 
-                return translationsFromFile;
-            }
+            StoreInCache(cacheKey, translationsFromFile);
+
+            return translationsFromFile;
         }
 
         public void ClearCache()
