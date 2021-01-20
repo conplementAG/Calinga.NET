@@ -1,7 +1,7 @@
 ﻿using TechTalk.SpecFlow;
 using TestContext = Calinga.NET.Tests.Context.TestContext;
 
-namespace Calinga.NET.Tests
+namespace Calinga.NET.Tests.Steps
 {
     [Binding]
     public class TranslationSteps

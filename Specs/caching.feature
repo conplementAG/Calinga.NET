@@ -38,10 +38,3 @@ Feature: Translation Caching
         And in Cache "Registration App" has language "de"
         When the user requests "de" translation for key "title"
         Then Calinga.Net returns translation "title"
-
-#    Scenario: Return key name if connection to calinga failed and key not in cache
-#
-#    Scenario: Return translation from cache if translations have not changed on server
-#
-#    Scenario: Error if language tag not added to team
-#

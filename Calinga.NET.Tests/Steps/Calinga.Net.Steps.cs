@@ -1,25 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Security.Policy;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Web;
-using Calinga.NET.Infrastructure;
-using Calinga.NET.Infrastructure.Exceptions;
+﻿using System.Threading.Tasks;
 using Calinga.NET.Tests.Context;
 using FluentAssertions;
-using Moq;
-using Moq.Protected;
-using Newtonsoft.Json;
-using NSubstitute.ExceptionExtensions;
 using TechTalk.SpecFlow;
 
-namespace Calinga.NET.Tests
+namespace Calinga.NET.Tests.Steps
 {
     [Binding]
     public class CalingaNetSteps

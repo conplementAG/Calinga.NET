@@ -30,11 +30,3 @@ Feature: Fetch Translations
         But in Calinga "Registration App" has no language "de"
         When the user requests "de" translation for key "title"
         Then Calinga.Net throws an exception telling the user that language "de" is unknown in project "Registration App"
-
-    Scenario: Return key name if language translations not cached and connection to calinga failed
-        Given conne
-#
-#    Scenario: Return translation from cache if translations have not changed on server
-#
-#    Scenario: Error if language tag not added to team
-#

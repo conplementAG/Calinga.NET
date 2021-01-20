@@ -4,7 +4,7 @@ using Calinga.NET.Tests.Context;
 using FluentAssertions;
 using TechTalk.SpecFlow;
 
-namespace Calinga.NET.Tests
+namespace Calinga.NET.Tests.Steps
 {
     [Binding]
     public class LanguageSteps
