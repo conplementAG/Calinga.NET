@@ -13,9 +13,11 @@ steps:
 - task: DotNetCoreCLI@2
   inputs:
     command: 'build'
+  env: { MSBUILDSINGLELOADCONTEXT: 1 }
 - task: DotNetCoreCLI@2
   inputs:
     command: 'test'
+  env: { MSBUILDSINGLELOADCONTEXT: 1 }
 - task: DotNetCoreCLI@2
   inputs:
     command: 'pack'
