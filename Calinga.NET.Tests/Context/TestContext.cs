@@ -56,6 +56,42 @@ namespace Calinga.NET.Tests.Context
 
         private ICalingaService BuildCalingaService()
         {
+            var httpClient = BuildHttpClientMock();
+
+            var fileService = BuildFileServiceMock();
+
+            var cachingService = new CachingService(fileService.Object);
+            var consumerHttpClient = new ConsumerHttpClient(Settings, httpClient);
+
+            return new CalingaService(cachingService, consumerHttpClient, Settings);
+        }
+
+        private Mock<IFileSystemService> BuildFileServiceMock()
+        {
+            var fileService = new Mock<IFileSystemService>();
+            fileService.Setup(x => x.ReadCacheFileAsync(It.IsAny<string>())).ReturnsAsync(
+                (string languageName) =>
+                {
+                    if (
+                        !this["Cache"].Organizations.ContainsKey(Settings.Organization) ||
+                        !this["Cache"].Organizations[Settings.Organization]
+                            .ContainsKey(Settings.Team) ||
+                        !this["Cache"].Organizations[Settings.Organization][
+                            this.Settings.Team].ContainsKey(Settings.Project))
+                    {
+                        throw new FileNotFoundException(
+                            $"File not found, path: {Settings.Organization}, {Settings.Team}, {Settings.Project}, {languageName}");
+                    }
+
+                    return this["Cache"].Organizations[Settings.Organization][
+                        Settings.Team][
+                        Settings.Project][languageName];
+                });
+            return fileService;
+        }
+
+        private HttpClient BuildHttpClientMock()
+        {
             var messageHandler = new Mock<HttpMessageHandler>(MockBehavior.Strict);
             messageHandler.Protected().Setup<Task<HttpResponseMessage>>("SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
@@ -94,32 +130,7 @@ namespace Calinga.NET.Tests.Context
                         {StatusCode = HttpStatusCode.NotImplemented, Content = new StringContent("{}")};
                 });
             var httpClient = new HttpClient(messageHandler.Object);
-
-            var fileService = new Mock<IFileSystemService>();
-            fileService.Setup(x => x.ReadCacheFileAsync(It.IsAny<string>())).ReturnsAsync(
-                (string languageName) =>
-                {
-                    if (
-                        !this["Cache"].Organizations.ContainsKey(Settings.Organization) ||
-                        !this["Cache"].Organizations[Settings.Organization]
-                            .ContainsKey(Settings.Team) ||
-                        !this["Cache"].Organizations[Settings.Organization][
-                            this.Settings.Team].ContainsKey(Settings.Project))
-                    {
-                        throw new FileNotFoundException(
-                            $"File not found, path: {Settings.Organization}, {Settings.Team}, {Settings.Project}, {languageName}");
-                    }
-
-                    return this["Cache"].Organizations[Settings.Organization][
-                        Settings.Team][
-                        Settings.Project][languageName];
-                });
-
-            var cachingService = new CachingService(fileService.Object);
-            var consumerHttpClient = new ConsumerHttpClient(Settings, httpClient);
-
-            return new CalingaService(cachingService, consumerHttpClient, Settings);
+            return httpClient;
         }
-
     }
 }
