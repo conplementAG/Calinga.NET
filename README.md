@@ -33,6 +33,9 @@ Package to connect and use the calinga service in .NET applications
             return new CalingaService(settings);
         });
 ```
+
+## Custom HttpClient
+If you need to set additional network options (proxy configuration, customized encryption, etc.) pass a prefonfigured `HttpClient` to `CalingaService`.
  
 Now the CalingaService is ready to be used in your application.
 More examples can be found [here](https://github.com/conplementAG/calinga-dotnet-demo).
