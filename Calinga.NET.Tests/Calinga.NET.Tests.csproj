@@ -17,10 +17,27 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="NSubstitute" Version="4.2.1" />
+    <PackageReference Include="SpecFlow" Version="3.1.97" />
+    <PackageReference Include="SpecFlow.MsTest" Version="3.1.97" />
+    <PackageReference Include="SpecFlow.Tools.MsBuild.Generation" Version="3.1.97" />
   </ItemGroup>
 
   <ItemGroup>
+    <FeatureFiles Include="..\Specs\**\*.feature" />
+  </ItemGroup>
+  <Target Name="IncludeCucumberMessagesSpecs" BeforeTargets="BeforeUpdateFeatureFilesInProject" Condition="$(DesignTimeBuild) != 'true' OR '$(BuildingProject)' == 'true'">
+    <Copy SourceFiles="@(FeatureFiles)" DestinationFolder="Specs/%(RecursiveDir)" />
+    <ItemGroup>
+      <SpecFlowFeatureFiles Include="Specs/**/*.feature" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
     <ProjectReference Include="..\Calinga.NET\Calinga.NET.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Specs\" />
   </ItemGroup>
 
 </Project>
