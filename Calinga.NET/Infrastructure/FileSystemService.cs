@@ -3,40 +3,43 @@
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Calinga.NET.Infrastructure.Exceptions;
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Calinga.NET.Infrastructure
 {
-    public class FileService : IFileService
+    public class FileSystemService : IFileSystemService
     {
         private readonly string _filePath;
 
-        public FileService(CalingaServiceSettings settings)
+        public FileSystemService(CalingaServiceSettings settings)
         {
             _filePath = Path.Combine(new [] {settings.CacheDirectory, settings.Organization, settings.Team, settings.Project});
         }
 
-        public async Task<string> GetJsonAsync(string language)
+        public async Task<IReadOnlyDictionary<string, string>> ReadCacheFileAsync(string language)
         {
             var path = Path.Combine(_filePath, GetFileName(language));
             if (!File.Exists(path)) throw new FileNotFoundException(Invariant($"File not found, path: {path}"));
 
             var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read);
-            string text;
+
             try
             {
                 using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
                 {
-                    text = await streamReader.ReadToEndAsync().ConfigureAwait(false);
+                    var fileContent = await streamReader.ReadToEndAsync().ConfigureAwait(false);
+                    return JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent);
                 }
             }
             catch (IOException ex)
             {
-                throw new IOException(Invariant($"The file could not be read:{ex.Message}, path: {path}"));
+                throw new TranslationsNotAvailableException(Invariant($"The file could not be read: {ex.Message}, path: {path}"), ex);
             }
-            return text;
         }
 
-        public async Task SaveTranslationsAsync(string language, string json)
+        public async Task SaveTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
         {
             var path = Path.Combine(_filePath, GetFileName(language));
 
@@ -45,7 +48,7 @@ namespace Calinga.NET.Infrastructure
 
             using (var outputFile = new StreamWriter(new FileStream(path, FileMode.Create)))
             {
-                await outputFile.WriteAsync(json).ConfigureAwait(false);
+                await outputFile.WriteAsync(JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
             }
         }
 
