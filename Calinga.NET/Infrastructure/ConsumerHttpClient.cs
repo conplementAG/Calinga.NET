@@ -1,7 +1,9 @@
-﻿using static System.FormattableString;
+﻿using System;
+using static System.FormattableString;
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Calinga.NET.Infrastructure.Exceptions;
@@ -36,19 +38,23 @@ namespace Calinga.NET.Infrastructure
             var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
 
             var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                return CreateTranslationsDictionary(body);
-            }
-            else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 throw new AuthorizationFailedException();
             }
-            else
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                throw new TranslationsNotFoundException($"Translations not found for Organization = '{_settings.Organization}', Team = '{_settings.Team}', Project = '{_settings.Project}', Language = '{language}'");
+            }
+
+            if (!response.IsSuccessStatusCode)
             {
                 throw new TranslationsNotAvailableException("Failed to fetch translations");
             }
+
+            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return CreateTranslationsDictionary(body);
         }
 
         public async Task<IEnumerable<string>> GetLanguagesAsync()
