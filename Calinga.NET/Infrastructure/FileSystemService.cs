@@ -21,7 +21,7 @@ namespace Calinga.NET.Infrastructure
         public async Task<IReadOnlyDictionary<string, string>> ReadCacheFileAsync(string language)
         {
             var path = Path.Combine(_filePath, GetFileName(language));
-            if (!File.Exists(path)) throw new FileNotFoundException(Invariant($"File not found, path: {path}"));
+            if (!File.Exists(path)) throw new TranslationsNotAvailableException(Invariant($"File not found, path: {path}"));
 
             var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read);
 
