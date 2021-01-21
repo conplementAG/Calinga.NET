@@ -83,7 +83,7 @@ namespace Calinga.NET.Infrastructure
 
         private static IEnumerable<string> MapGetLanguagesResult(string json)
         {
-            return JsonConvert.DeserializeObject<Dictionary<string, bool>>(json).Select(l => l.Key);
+            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json).Select(l => l["name"]);
         }
 
         private void EnsureApiTokenHeaderIsSet()
