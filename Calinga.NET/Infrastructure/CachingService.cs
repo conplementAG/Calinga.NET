@@ -44,6 +44,7 @@ namespace Calinga.NET.Infrastructure
                 _translationsCache.Remove(RemoveKey(key));
             }
             ClearKeys();
+            _fileService.DeleteFiles();
         }
 
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)

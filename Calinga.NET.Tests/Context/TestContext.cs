@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Calinga.NET.Infrastructure;
+using Calinga.NET.Infrastructure.Exceptions;
 using Moq;
 using Moq.Protected;
 using Newtonsoft.Json;
@@ -79,7 +80,7 @@ namespace Calinga.NET.Tests.Context
                         !this["Cache"].Organizations[Settings.Organization][
                             this.Settings.Team].ContainsKey(Settings.Project))
                     {
-                        throw new FileNotFoundException(
+                        throw new TranslationsNotAvailableException(
                             $"File not found, path: {Settings.Organization}, {Settings.Team}, {Settings.Project}, {languageName}");
                     }
 
@@ -87,6 +88,11 @@ namespace Calinga.NET.Tests.Context
                         Settings.Team][
                         Settings.Project][languageName];
                 });
+
+            fileService.Setup(f => f.DeleteFiles()).Callback(() =>
+            {
+                this["Cache"].Organizations.Clear();
+            });
             return fileService;
         }
 
@@ -105,7 +111,7 @@ namespace Calinga.NET.Tests.Context
                         var organizationName = segments[2];
                         var teamName = segments[3];
                         var projectName = segments[4];
-                        var languageName = segments[5];
+                        var languageName = segments[6];
                         try
                         {
                             var translations =
