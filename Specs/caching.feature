@@ -38,3 +38,20 @@ Feature: Translation Caching
         And in Cache "Registration App" has language "de"
         When the user requests "de" translation for key "title"
         Then Calinga.Net returns translation "title"
+		
+	Scenario: Return translation from Calinga if cache has been deleted 
+		Given in Cache there is an organization "Bob's Company"
+        And in Cache "Bob's Company" has team "App Team"
+        And in Cache "App Team" has project "Registration App"
+        And in Cache "Registration App" has language "de"
+        And in Cache "Registration App" has key "title"
+        And in Cache the "de" translation of key "title" is "Titel"
+        And in Calinga there is an organization "Bob's Company"
+        And in Calinga "Bob's Company" has team "App Team"
+        And in Calinga "App Team" has project "Registration App"
+        And in Calinga "Registration App" has language "de"
+        And in Calinga "Registration App" has key "title"
+        But in Calinga the "de" translation of key "title" is "Überschrift"
+		When the user clears the cache
+        And the user requests "de" translation for key "title"
+        Then Calinga.Net returns translation "Überschrift"
