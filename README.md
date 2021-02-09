@@ -35,7 +35,16 @@ Package to connect and use the calinga service in .NET applications
 ```
 
 ## Custom HttpClient
-If you need to set additional network options (proxy configuration, customized encryption, etc.) pass a prefonfigured `HttpClient` to `CalingaService`.
+If you need to set additional network options (proxy configuration, customized encryption, etc.) pass a pre-configured `HttpClient` to `CalingaService`.
  
 Now the CalingaService is ready to be used in your application.
 More examples can be found [here](https://github.com/conplementAG/calinga-dotnet-demo).
+
+## Language Tags
+To fetch translations for languages with language tag you must provide the language and tag in the following format:
+
+`<language code>~<language tag>`
+
+e.g. `de~Intranet`.
+
+Calls to `GetLanguagesAsync()` will also return languages in this format.
