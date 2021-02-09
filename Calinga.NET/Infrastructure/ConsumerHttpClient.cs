@@ -1,5 +1,4 @@
-﻿using System;
-using static System.FormattableString;
+﻿using static System.FormattableString;
 
 using System.Collections.Generic;
 using System.Linq;
@@ -89,7 +88,11 @@ namespace Calinga.NET.Infrastructure
 
         private static IEnumerable<string> MapGetLanguagesResult(string json)
         {
-            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json).Select(l => l["name"]);
+            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json).Select(l =>
+            {
+                var languageTag = l["tag"];
+                return string.IsNullOrEmpty(languageTag) ? l["name"] : $"{l["name"]}~{languageTag}";
+            });
         }
 
         private void EnsureApiTokenHeaderIsSet()
