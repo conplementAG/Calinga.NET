@@ -61,7 +61,7 @@ namespace Calinga.NET.Tests.Context
 
             var fileService = BuildFileCachingServiceMock();
 
-            var cachingService = new CascadedCachingService(fileService.Object);
+            var cachingService = new CascadedCachingService(new InMemoryCachingService(), fileService.Object);
             var consumerHttpClient = new ConsumerHttpClient(Settings, httpClient);
 
             return new CalingaService(cachingService, consumerHttpClient, Settings);
