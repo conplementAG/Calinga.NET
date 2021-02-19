@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
+using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
-using Calinga.NET.Infrastructure.Exceptions;
 using Moq;
 using Moq.Protected;
 using Newtonsoft.Json;
@@ -24,7 +24,7 @@ namespace Calinga.NET.Tests.Context
         public object LastResult { get; private set; }
         private ICalingaService _service;
 
-        public ICalingaService Service => _service ??= BuildCalingaService();
+        public ICalingaService Service => _service ?? BuildCalingaService();
 
         public TranslationsRepository this[string repository] => _repositories[repository];
 
@@ -59,19 +59,19 @@ namespace Calinga.NET.Tests.Context
         {
             var httpClient = BuildHttpClientMock();
 
-            var fileService = BuildFileServiceMock();
+            var fileService = BuildFileCachingServiceMock();
 
-            var cachingService = new CachingService(fileService.Object);
+            var cachingService = new CascadedCachingService(fileService.Object);
             var consumerHttpClient = new ConsumerHttpClient(Settings, httpClient);
 
             return new CalingaService(cachingService, consumerHttpClient, Settings);
         }
 
-        private Mock<IFileSystemService> BuildFileServiceMock()
+        private Mock<ICachingService> BuildFileCachingServiceMock()
         {
-            var fileService = new Mock<IFileSystemService>();
-            fileService.Setup(x => x.ReadCacheFileAsync(It.IsAny<string>())).ReturnsAsync(
-                (string languageName) =>
+            var fileService = new Mock<ICachingService>();
+            fileService.Setup(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>())).ReturnsAsync(
+                (string languageName, bool isDraft) =>
                 {
                     if (
                         !this["Cache"].Organizations.ContainsKey(Settings.Organization) ||
@@ -80,8 +80,7 @@ namespace Calinga.NET.Tests.Context
                         !this["Cache"].Organizations[Settings.Organization][
                             this.Settings.Team].ContainsKey(Settings.Project))
                     {
-                        throw new TranslationsNotAvailableException(
-                            $"File not found, path: {Settings.Organization}, {Settings.Team}, {Settings.Project}, {languageName}");
+                        return new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());
                     }
 
                     return this["Cache"].Organizations[Settings.Organization][
@@ -89,7 +88,7 @@ namespace Calinga.NET.Tests.Context
                         Settings.Project][languageName];
                 });
 
-            fileService.Setup(f => f.DeleteFiles()).Callback(() =>
+            fileService.Setup(f => f.ClearCache()).Callback(() =>
             {
                 this["Cache"].Organizations.Clear();
             });

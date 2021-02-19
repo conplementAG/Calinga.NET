@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-
+using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
 
@@ -24,12 +24,12 @@ namespace Calinga.NET
         }
 
         public CalingaService(CalingaServiceSettings settings)
-            : this(new CachingService(new FileSystemService(settings)), new ConsumerHttpClient(settings), settings)
+            : this(new CascadedCachingService(new InMemoryCachingService(), new FileCachingService(settings)), new ConsumerHttpClient(settings), settings)
         {
         }
 
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient)
-            : this(new CachingService(new FileSystemService(settings)), new ConsumerHttpClient(settings, httpClient), settings)
+            : this(new CascadedCachingService(new InMemoryCachingService(), new FileCachingService(settings)), new ConsumerHttpClient(settings, httpClient), settings)
         {
         }
 
@@ -70,20 +70,21 @@ namespace Calinga.NET
         {
             Guard.IsNotNullOrWhiteSpace(language);
 
-            try
+            var cachedTranslations = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
+
+            if (!cachedTranslations.Any())
             {
-                var cachedTranslations = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
+                cachedTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
 
-                return !_settings.IsDevMode ? cachedTranslations : cachedTranslations.ToDictionary(k => k.Key, k => k.Key);
+                if (!cachedTranslations.Any())
+                {
+                    throw new TranslationsNotAvailableException($"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
+                }
+
+                await _cachingService.StoreTranslationsAsync(language, cachedTranslations).ConfigureAwait(false);
             }
-            catch (TranslationsNotAvailableException)
-            {
-                var translations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
 
-                await _cachingService.StoreTranslationsAsync(language, translations).ConfigureAwait(false);
-
-                return !_settings.IsDevMode ? translations : translations.ToDictionary(k => k.Key, k => k.Key);
-            }
+            return !_settings.IsDevMode ? cachedTranslations : cachedTranslations.ToDictionary(k => k.Key, k => k.Key);
         }
 
         public async Task<IEnumerable<string>> GetLanguagesAsync()

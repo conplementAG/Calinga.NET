@@ -14,7 +14,7 @@ using Moq;
 namespace Calinga.NET.Tests
 {
     [TestClass]
-    public class ServiceTests
+    public class CalingaServiceTests
     {
         private Mock<ICachingService> _cachingService;
         private Mock<IConsumerHttpClient> _consumerHttpClient;

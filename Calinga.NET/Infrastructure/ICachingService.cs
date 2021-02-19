@@ -10,6 +10,6 @@ namespace Calinga.NET.Infrastructure
 
         Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations);
 
-        void ClearCache();
+        Task ClearCache();
     }
 }
