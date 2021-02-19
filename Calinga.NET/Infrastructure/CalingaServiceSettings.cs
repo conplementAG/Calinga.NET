@@ -13,7 +13,10 @@
         public bool IncludeDrafts { get; set; }
 
         public bool IsDevMode { get; set; }
-
+        
+        /// <summary>
+        /// Gets or sets the cache file system directory. Setting only required for default caching
+        /// </summary>
         public string CacheDirectory { get; set; }
 
         public string ConsumerApiBaseUrl { get; set; } = "https://api.calinga.io/v3";

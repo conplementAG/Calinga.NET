@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -31,6 +30,11 @@ namespace Calinga.NET
 
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient)
             : this(new CachingService(new FileSystemService(settings)), new ConsumerHttpClient(settings, httpClient), settings)
+        {
+        }
+
+        public CalingaService(ICachingService cachingService, CalingaServiceSettings settings)
+            : this(cachingService, new ConsumerHttpClient(settings), settings)
         {
         }
 
