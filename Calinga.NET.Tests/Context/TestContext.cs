@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -24,7 +23,7 @@ namespace Calinga.NET.Tests.Context
         public object LastResult { get; private set; }
         private ICalingaService _service;
 
-        public ICalingaService Service => _service ?? BuildCalingaService();
+        public ICalingaService Service => _service ??= BuildCalingaService();
 
         public TranslationsRepository this[string repository] => _repositories[repository];
 
@@ -80,7 +79,7 @@ namespace Calinga.NET.Tests.Context
                         !this["Cache"].Organizations[Settings.Organization][
                             this.Settings.Team].ContainsKey(Settings.Project))
                     {
-                        return new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());
+                        return TestData.EmptyTranslations;
                     }
 
                     return this["Cache"].Organizations[Settings.Organization][
