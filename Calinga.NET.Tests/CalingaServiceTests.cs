@@ -170,6 +170,21 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
+        public async Task GetTranslations_ShouldNotFail_WhenCachingReturnsNull()
+        {
+            // Arrange
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).ReturnsAsync(default(IReadOnlyDictionary<string, string>));
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).ReturnsAsync(TestData.Translations_De);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+
+            // Assert
+            translations.Any().Should().BeTrue();
+        }
+
+        [TestMethod]
         public async Task GetTranslations_ShouldReturnKeysFromTestData_WhenDevMode()
         {
             // Arrange

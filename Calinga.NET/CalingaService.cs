@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -72,11 +73,11 @@ namespace Calinga.NET
 
             var cachedTranslations = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
 
-            if (!cachedTranslations.Any())
+            if (cachedTranslations == null || !cachedTranslations.Any())
             {
                 cachedTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
 
-                if (!cachedTranslations.Any())
+                if (cachedTranslations ==  null || !cachedTranslations.Any())
                 {
                     throw new TranslationsNotAvailableException($"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
                 }
