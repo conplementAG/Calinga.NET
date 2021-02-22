@@ -1,7 +1,6 @@
 ﻿using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Calinga.NET.Infrastructure;
 using Calinga.NET.Caching;
 
 namespace Calinga.NET.Tests

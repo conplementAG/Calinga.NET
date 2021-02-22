@@ -98,10 +98,10 @@ namespace Calinga.NET
             return _languages ??= await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
         }
 
-        public void ClearCache()
+        public async Task ClearCache()
         {
             _languages = null;
-            _cachingService.ClearCache();
+            await _cachingService.ClearCache();
         }
 
         private void ValidateSettings(CalingaServiceSettings setting)

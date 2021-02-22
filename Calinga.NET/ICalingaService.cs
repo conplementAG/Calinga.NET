@@ -13,6 +13,6 @@ namespace Calinga.NET
 
         ILanguageContext CreateContext(string language);
 
-        void ClearCache();
+        Task ClearCache();
     }
 }
