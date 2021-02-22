@@ -27,7 +27,7 @@ namespace Calinga.NET.Tests
             var actual = await _sut.GetTranslations(TestData.Language_DE, false);
 
             // Assert
-            actual.Should().BeEquivalentTo(TestData.Translations_De);
+            actual.Result.Should().BeEquivalentTo(TestData.Translations_De);
         }
 
         [TestMethod]
@@ -37,7 +37,7 @@ namespace Calinga.NET.Tests
             var actual = await _sut.GetTranslations(TestData.Language_DE, false);
 
             // Assert
-            actual.Should().BeEquivalentTo(TestData.EmptyTranslations);
+            actual.Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
         }
 
         [TestMethod]
@@ -51,8 +51,8 @@ namespace Calinga.NET.Tests
             await _sut.ClearCache();
 
             // Assert
-            (await _sut.GetTranslations(TestData.Language_DE, false)).Should().BeEquivalentTo(TestData.EmptyTranslations);
-            (await _sut.GetTranslations(TestData.Language_EN, false)).Should().BeEquivalentTo(TestData.EmptyTranslations);
+            (await _sut.GetTranslations(TestData.Language_DE, false)).Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
+            (await _sut.GetTranslations(TestData.Language_EN, false)).Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
         }
     }
 }

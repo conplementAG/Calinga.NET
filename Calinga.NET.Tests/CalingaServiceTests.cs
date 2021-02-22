@@ -1,9 +1,8 @@
 ﻿using static System.FormattableString;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
+using Calinga.NET.Caching;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -26,8 +25,8 @@ namespace Calinga.NET.Tests
             _testCalingaServiceSettings = CreateSettings();
             _cachingService = new Mock<ICachingService>();
             _consumerHttpClient = new Mock<IConsumerHttpClient>();
-            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Translations_De));
-            _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Translations_En));
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Cache_Translations_De));
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Cache_Translations_En));
 
             _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult(TestData.Languages));
         }
@@ -173,7 +172,7 @@ namespace Calinga.NET.Tests
         public async Task GetTranslations_ShouldNotFail_WhenCachingReturnsNull()
         {
             // Arrange
-            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).ReturnsAsync(default(IReadOnlyDictionary<string, string>));
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).ReturnsAsync(CacheResponse.Empty);
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).ReturnsAsync(TestData.Translations_De);
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 

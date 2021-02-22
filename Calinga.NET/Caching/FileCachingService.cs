@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -19,7 +18,7 @@ namespace Calinga.NET.Caching
             _filePath = Path.Combine(new[] { settings.CacheDirectory, settings.Organization, settings.Team, settings.Project });
         }
 
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslations(string language, bool includeDrafts)
+        public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
             var path = Path.Combine(_filePath, GetFileName(language));
             if (File.Exists(path))
@@ -31,7 +30,7 @@ namespace Calinga.NET.Caching
                     using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
                     {
                         var fileContent = await streamReader.ReadToEndAsync().ConfigureAwait(false);
-                        return JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent);
+                        return new CacheResponse(JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent), true);
                     }
                 }
 
@@ -41,7 +40,7 @@ namespace Calinga.NET.Caching
                 }
             }
 
-            return new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());
+            return CacheResponse.Empty;
         }
 
         public Task ClearCache()

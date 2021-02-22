@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -71,19 +70,25 @@ namespace Calinga.NET
         {
             Guard.IsNotNullOrWhiteSpace(language);
 
-            var cachedTranslations = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
+            IReadOnlyDictionary<string, string> cachedTranslations;
+            var cacheResponse = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
 
-            if (cachedTranslations == null || !cachedTranslations.Any())
+            if (cacheResponse.FoundInCache)
+            {
+                cachedTranslations = cacheResponse.Result;
+            }
+            else
             {
                 cachedTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
 
-                if (cachedTranslations ==  null || !cachedTranslations.Any())
+                if (cachedTranslations == null || !cachedTranslations.Any())
                 {
                     throw new TranslationsNotAvailableException($"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
                 }
 
                 await _cachingService.StoreTranslationsAsync(language, cachedTranslations).ConfigureAwait(false);
             }
+
 
             return !_settings.IsDevMode ? cachedTranslations : cachedTranslations.ToDictionary(k => k.Key, k => k.Key);
         }

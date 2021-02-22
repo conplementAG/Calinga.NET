@@ -79,12 +79,12 @@ namespace Calinga.NET.Tests.Context
                         !this["Cache"].Organizations[Settings.Organization][
                             this.Settings.Team].ContainsKey(Settings.Project))
                     {
-                        return TestData.EmptyTranslations;
+                        return CacheResponse.Empty;
                     }
 
-                    return this["Cache"].Organizations[Settings.Organization][
+                    return new CacheResponse(this["Cache"].Organizations[Settings.Organization][
                         Settings.Team][
-                        Settings.Project][languageName];
+                        Settings.Project][languageName], true);
                 });
 
             fileService.Setup(f => f.ClearCache()).Callback(() =>

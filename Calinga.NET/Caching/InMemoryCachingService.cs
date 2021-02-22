@@ -1,8 +1,6 @@
 ﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
-using Calinga.NET.Infrastructure;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 using static System.FormattableString;
@@ -19,14 +17,14 @@ namespace Calinga.NET.Caching
             _translationsCache = new MemoryCache(new MemoryCacheOptions());
         }
 
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslations(string language, bool includeDrafts)
+        public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
             if (_translationsCache.TryGetValue(CreateKey(language), out var translationsFromCache))
             {
-                return (IReadOnlyDictionary<string, string>)translationsFromCache;
+                return new CacheResponse((IReadOnlyDictionary<string, string>)translationsFromCache, true);
             }
 
-            return new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());
+            return CacheResponse.Empty;
         }
 
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)

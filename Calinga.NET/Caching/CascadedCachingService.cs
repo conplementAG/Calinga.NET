@@ -15,18 +15,18 @@ namespace Calinga.NET.Caching
             _cachingServices = cachingServices;
         }
 
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslations(string language, bool includeDrafts)
+        public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
             foreach (var cachingService in _cachingServices)
             {
-                var result = await cachingService.GetTranslations(language, includeDrafts);
-                if (result.Any())
+                var cacheResponse = await cachingService.GetTranslations(language, includeDrafts);
+                if (cacheResponse.FoundInCache)
                 {
-                    return result;
+                    return cacheResponse;
                 }
             }
 
-            return new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());
+            return CacheResponse.Empty;
         }
 
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)

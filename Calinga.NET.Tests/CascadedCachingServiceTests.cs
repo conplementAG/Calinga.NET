@@ -2,10 +2,8 @@
 using System.Threading.Tasks;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Calinga.NET.Infrastructure;
 using Calinga.NET.Caching;
 using Moq;
-using NSubstitute;
 
 namespace Calinga.NET.Tests
 {
@@ -28,8 +26,8 @@ namespace Calinga.NET.Tests
         public async Task GetTranslations_ShouldGetTranslationsFromFirstCacheLevel_WhenAvailable()
         {
             // Arrange
-            _firstLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.Translations_De));
-            _secondLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.EmptyTranslations));
+            _firstLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.Cache_Translations_De));
+            _secondLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.Cache_Translations_En));
 
             // Act
             var actual = await _sut.GetTranslations(TestData.Language_DE, false);
@@ -37,15 +35,15 @@ namespace Calinga.NET.Tests
             // Assert
             _firstLevelCachingService.Verify(x => x.GetTranslations(TestData.Language_DE, false), Times.Once);
             _secondLevelCachingService.Verify(x => x.GetTranslations(TestData.Language_DE, false), Times.Never);
-            actual.Should().BeEquivalentTo(TestData.Translations_De);
+            actual.Result.Should().BeEquivalentTo(TestData.Translations_De);
         }
 
         [TestMethod]
         public async Task GetTranslations_ShouldGetTranslationsFromSecondCacheLevel_WhenNotAvailableInFirst()
         {
             // Arrange
-            _firstLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.EmptyTranslations));
-            _secondLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.Translations_De));
+            _firstLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(CacheResponse.Empty));
+            _secondLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.Cache_Translations_De));
 
             // Act
             var actual = await _sut.GetTranslations(TestData.Language_DE, false);
@@ -53,15 +51,15 @@ namespace Calinga.NET.Tests
             // Assert
             _firstLevelCachingService.Verify(x => x.GetTranslations(TestData.Language_DE, false), Times.Once);
             _secondLevelCachingService.Verify(x => x.GetTranslations(TestData.Language_DE, false), Times.Once);
-            actual.Should().BeEquivalentTo(TestData.Translations_De);
+            actual.Result.Should().BeEquivalentTo(TestData.Translations_De);
         }
 
         [TestMethod]
         public async Task GetTranslations_ShouldNotFail_WhenNoCacheHitInAnyLevel()
         {
             // Arrange
-            _firstLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.EmptyTranslations));
-            _secondLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(TestData.EmptyTranslations));
+            _firstLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(CacheResponse.Empty));
+            _secondLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).Returns(Task.FromResult(CacheResponse.Empty));
 
             // Act
             var actual = await _sut.GetTranslations(TestData.Language_DE, false);
@@ -69,7 +67,7 @@ namespace Calinga.NET.Tests
             // Assert
             _firstLevelCachingService.Verify(x => x.GetTranslations(TestData.Language_DE, false), Times.Once);
             _secondLevelCachingService.Verify(x => x.GetTranslations(TestData.Language_DE, false), Times.Once);
-            actual.Should().BeEquivalentTo(TestData.EmptyTranslations);
+            actual.Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
         }
 
         [TestMethod]
