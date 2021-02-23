@@ -1,53 +1,59 @@
-﻿using static System.FormattableString;
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-using Newtonsoft.Json;
-
+using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
 
-namespace Calinga.NET.Infrastructure
+using Newtonsoft.Json;
+
+using static System.FormattableString;
+
+namespace Calinga.NET.Caching
 {
-    public class FileSystemService : IFileSystemService
+    public class FileCachingService : ICachingService
     {
         private readonly string _filePath;
 
-        public FileSystemService(CalingaServiceSettings settings)
+        public FileCachingService(CalingaServiceSettings settings)
         {
             _filePath = Path.Combine(new[] { settings.CacheDirectory, settings.Organization, settings.Team, settings.Project });
         }
 
-        public async Task<IReadOnlyDictionary<string, string>> ReadCacheFileAsync(string language)
+        public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
             var path = Path.Combine(_filePath, GetFileName(language));
-            if (!File.Exists(path)) throw new TranslationsNotAvailableException(Invariant($"File not found, path: {path}"));
-
-            var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read);
-
-            try
+            if (File.Exists(path))
             {
-                using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
+                var fileStream = new FileStream(path, FileMode.Open, FileAccess.Read);
+
+                try
                 {
-                    var fileContent = await streamReader.ReadToEndAsync().ConfigureAwait(false);
-                    return JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent);
+                    using (var streamReader = new StreamReader(fileStream, Encoding.UTF8))
+                    {
+                        var fileContent = await streamReader.ReadToEndAsync().ConfigureAwait(false);
+                        return new CacheResponse(JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent), true);
+                    }
+                }
+
+                catch (IOException ex)
+                {
+                    throw new TranslationsNotAvailableException(Invariant($"The file could not be read: {ex.Message}, path: {path}"), ex);
                 }
             }
-            catch (IOException ex)
-            {
-                throw new TranslationsNotAvailableException(Invariant($"The file could not be read: {ex.Message}, path: {path}"), ex);
-            }
+
+            return CacheResponse.Empty;
         }
 
-        public void DeleteFiles()
+        public Task ClearCache()
         {
             var directoryInfo = new DirectoryInfo(_filePath);
             WalkDirectoryTree(directoryInfo);
+            return Task.CompletedTask;
         }
 
-        public async Task SaveTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
+        public async Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
         {
             var path = Path.Combine(_filePath, GetFileName(language));
 
@@ -64,7 +70,7 @@ namespace Calinga.NET.Infrastructure
                 await outputFile.WriteAsync(JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
             }
             catch (IOException)
-            {}
+            { }
         }
 
         private static string GetFileName(string language) => Invariant($"{language.ToUpper()}.json");
@@ -124,7 +130,7 @@ namespace Calinga.NET.Infrastructure
                 using FileStream fs = new FileStream(file.FullName, FileMode.Create, FileAccess.Write);
                 fs.Dispose();
             }
-            catch(IOException)
+            catch (IOException)
             { }
         }
     }

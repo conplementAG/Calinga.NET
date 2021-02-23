@@ -5,8 +5,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Calinga.NET.Infrastructure.Exceptions;
+
 using Newtonsoft.Json;
+
+using Calinga.NET.Infrastructure.Exceptions;
 
 namespace Calinga.NET.Infrastructure
 {

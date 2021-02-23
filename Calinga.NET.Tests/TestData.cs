@@ -1,6 +1,8 @@
 ﻿using static System.FormattableString;
 
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using Calinga.NET.Caching;
 
 namespace Calinga.NET.Tests
 {
@@ -16,8 +18,13 @@ namespace Calinga.NET.Tests
         internal static IReadOnlyDictionary<string, string> Translations_De => CreateTranslations(Language_DE);
 
         internal static IReadOnlyDictionary<string, string> Translations_En => CreateTranslations(Language_EN);
+        
+        internal static IReadOnlyDictionary<string, string> EmptyTranslations => new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());
 
         internal static IEnumerable<string> Languages => new List<string> { Language_DE, Language_EN };
+
+        internal static CacheResponse Cache_Translations_De = new CacheResponse(Translations_De, true);
+        internal static CacheResponse Cache_Translations_En = new CacheResponse(Translations_En, true);
 
         private static IReadOnlyDictionary<string, string> CreateTranslations(string language) => new Dictionary<string, string>
         {

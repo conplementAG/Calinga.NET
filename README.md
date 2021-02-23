@@ -21,7 +21,7 @@ Package to connect and use the calinga service in .NET applications
             "ApiToken": <YOUR_TOKEN>,
             "IsDevMode": false,
             "IncludeDrafts": false,
-            "CacheDirectory":  "CacheFiles"
+            "CacheDirectory":  "CacheFiles" # Only needed for default caching implementation
           }
 ```
 3. Add the following to your `Startup.ConfigureServices` method:
@@ -33,6 +33,9 @@ Package to connect and use the calinga service in .NET applications
             return new CalingaService(settings);
         });
 ```
+
+## Custom Caching
+Calinga uses out of the box in memory caching with a fallback to filesystem cache. You can overwrite ICachingService with the implementation of your choice. 
 
 ## Custom HttpClient
 If you need to set additional network options (proxy configuration, customized encryption, etc.) pass a pre-configured `HttpClient` to `CalingaService`.
