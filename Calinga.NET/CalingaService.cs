@@ -102,9 +102,7 @@ namespace Calinga.NET
         public Task ClearCache()
         {
             _languages = null;
-            _cachingService.ClearCache();
-
-            return Task.CompletedTask;
+             return _cachingService.ClearCache();
         }
 
         private void ValidateSettings(CalingaServiceSettings setting)
