@@ -30,12 +30,14 @@ namespace Calinga.NET.Caching
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
         {
             var tasks = _cachingServices.Select(x => x.StoreTranslationsAsync(language, translations));
+            
             return Task.WhenAll(tasks.ToArray());
         }
 
         public Task ClearCache()
         {
             var tasks = _cachingServices.Select(x => x.ClearCache());
+            
             return Task.WhenAll(tasks.ToArray());
         }
     }

@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
@@ -98,10 +99,12 @@ namespace Calinga.NET
             return _languages ??= await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
         }
 
-        public async Task ClearCache()
+        public Task ClearCache()
         {
             _languages = null;
-            await _cachingService.ClearCache();
+            _cachingService.ClearCache();
+
+            return Task.CompletedTask;
         }
 
         private void ValidateSettings(CalingaServiceSettings setting)

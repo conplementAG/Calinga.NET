@@ -12,6 +12,7 @@ namespace Calinga.NET.Caching
         }
 
         public IReadOnlyDictionary<string, string> Result { get; }
+
         public bool FoundInCache { get; }
 
         public static CacheResponse Empty => new CacheResponse(new ReadOnlyDictionary<string, string>(new Dictionary<string, string>()), false);
