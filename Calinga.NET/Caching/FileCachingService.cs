@@ -15,10 +15,12 @@ namespace Calinga.NET.Caching
     public class FileCachingService : ICachingService
     {
         private readonly string _filePath;
+        private readonly CalingaServiceSettings _settings;
 
         public FileCachingService(CalingaServiceSettings settings)
         {
             _filePath = Path.Combine(new[] { settings.CacheDirectory, settings.Organization, settings.Team, settings.Project });
+            _settings = settings;
         }
 
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
@@ -48,13 +50,18 @@ namespace Calinga.NET.Caching
 
         public Task ClearCache()
         {
+            if (_settings.DoNotWriteCacheFiles) return Task.CompletedTask; 
+
             var directoryInfo = new DirectoryInfo(_filePath);
             WalkDirectoryTree(directoryInfo);
+            
             return Task.CompletedTask;
         }
 
         public async Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
         {
+            if (_settings.DoNotWriteCacheFiles) return;
+
             var path = Path.Combine(_filePath, GetFileName(language));
 
             Directory.CreateDirectory(_filePath);
