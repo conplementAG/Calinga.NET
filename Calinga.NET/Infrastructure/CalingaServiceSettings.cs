@@ -22,5 +22,7 @@
         public string ConsumerApiBaseUrl { get; set; } = "https://api.calinga.io/v3";
 
         public uint MemoryCacheExpirationIntervalInSeconds { get; set; }
+
+        public bool DoNotWriteCacheFiles { get; set; }
     }
 }
