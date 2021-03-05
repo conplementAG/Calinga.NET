@@ -1,18 +1,20 @@
 # Calinga.NET
+
 [![NuGet](https://img.shields.io/nuget/v/Calinga.Net)](https://www.nuget.org/packages/Calinga.NET/)
 
 Package to connect and use the calinga service in .NET applications
- 
+
 ## General usage
- 
+
 1. Install the `Calinga.NET` nuget package
 2. Create and populate an instance of `CalingaServiceSettings`
 3. Instantiate `CalingaService` with your settings from 2.
- 
- ## ASP.NET Core integration
- 
+
+## ASP.NET Core integration
+
 1. Install the `Calinga.NET` nuget package
 2. Extend your `appsettings.json` with:
+
 ```json
       "CalingaServiceSettings": {
             "Organization": <YOUR_ORGANIZATION>,
@@ -21,10 +23,14 @@ Package to connect and use the calinga service in .NET applications
             "ApiToken": <YOUR_TOKEN>,
             "IsDevMode": false,
             "IncludeDrafts": false,
-            "CacheDirectory":  "CacheFiles" # Only needed for default caching implementation
+            "CacheDirectory":  "CacheFiles" # Only needed for default caching implementation,
+            "MemoryCacheExpirationIntervalInSeconds": <YOUR_CACHE_EXPIRATION_INTERVAL_IN_SECONDS> # Only needed for default caching implementation,
+            "DoNotWriteCacheFiles": false # Only needed for default caching implementation
           }
 ```
+
 3. Add the following to your `Startup.ConfigureServices` method:
+
 ```csharp
     services.AddSingleton<ICalingaService>(ctx =>
         {
@@ -35,15 +41,18 @@ Package to connect and use the calinga service in .NET applications
 ```
 
 ## Custom Caching
-Calinga uses out of the box in memory caching with a fallback to filesystem cache. You can overwrite ICachingService with the implementation of your choice. 
+
+Calinga uses out of the box in memory caching with a fallback to filesystem cache. You can overwrite ICachingService with the implementation of your choice.
 
 ## Custom HttpClient
+
 If you need to set additional network options (proxy configuration, customized encryption, etc.) pass a pre-configured `HttpClient` to `CalingaService`.
- 
+
 Now the CalingaService is ready to be used in your application.
 More examples can be found [here](https://github.com/conplementAG/calinga-dotnet-demo).
 
 ## Language Tags
+
 To fetch translations for languages with language tag you must provide the language and tag in the following format:
 
 `<language code>~<language tag>`
