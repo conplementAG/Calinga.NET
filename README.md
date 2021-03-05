@@ -24,8 +24,8 @@ Package to connect and use the calinga service in .NET applications
             "IsDevMode": false,
             "IncludeDrafts": false,
             "CacheDirectory":  "CacheFiles" # Only needed for default caching implementation,
-            "MemoryCacheExpirationIntervalInSeconds": <YOUR_CACHE_EXPIRATION_INTERVAL_IN_SECONDS>,
-            "DoNotWriteCacheFiles": false
+            "MemoryCacheExpirationIntervalInSeconds": <YOUR_CACHE_EXPIRATION_INTERVAL_IN_SECONDS> # Only needed for default caching implementation,
+            "DoNotWriteCacheFiles": false # Only needed for default caching implementation
           }
 ```
 
