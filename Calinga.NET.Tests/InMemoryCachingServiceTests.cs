@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
+
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
 
@@ -16,7 +18,7 @@ namespace Calinga.NET.Tests
         [TestInitialize]
         public void Init()
         {
-            _sut = new InMemoryCachingService(GetSettings());
+            _sut = new InMemoryCachingService(new DateTimeService(), GetSettings());
         }
 
         [TestMethod]
@@ -36,11 +38,12 @@ namespace Calinga.NET.Tests
         public async Task GetTranslations_ShoulClearCache_WhenExpired()
         {
             // Arrange
-            var service = new InMemoryCachingService(GetSettings(2));
+            var timeService = new Mock<IDateTimeService>();
+            var service = new InMemoryCachingService(timeService.Object, GetSettings(2));
             await service.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
 
             // Act
-            await Task.Delay((int)TimeSpan.FromSeconds(7).TotalMilliseconds);
+            timeService.Setup(t => t.GetCurrentDateTime()).Returns(DateTime.Now.AddSeconds(7));
             var actual = await service.GetTranslations(TestData.Language_DE, false);
 
             // Assert
@@ -51,7 +54,8 @@ namespace Calinga.NET.Tests
         public async Task GetTranslations_ShoulReturnTranslations_WhenCacheIsNotExpired()
         {
             // Arrange
-            var service = new InMemoryCachingService(GetSettings(5));
+            var service = new InMemoryCachingService(new DateTimeService(), GetSettings(5));
+
             await service.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
 
             // Act

@@ -22,20 +22,20 @@ namespace Calinga.NET.Caching
         private readonly DateTime _expirationDate;
         private readonly bool _withExpirationDate;
 
-        public InMemoryCachingService(CalingaServiceSettings settings)
+        public InMemoryCachingService(IDateTimeService timeService, CalingaServiceSettings settings)
         {
             _translationsCache = new MemoryCache(new MemoryCacheOptions());
-            _dateTimeService = new DateTimeService();
-           
-            _expirationDate = _dateTimeService.GetExpirationDate(settings.MemoryCacheExpirationIntervalInSeconds);
+            _dateTimeService = timeService;
+
+            _expirationDate = GetExpirationDate(settings.MemoryCacheExpirationIntervalInSeconds);
             _withExpirationDate = _expirationDate != DateTime.MaxValue;
         }
 
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
-            if (_withExpirationDate && IsCacheExpiry())
+            if (_withExpirationDate && IsCacheExpired())
             {
-                _ = ClearCache();
+                await ClearCache().ConfigureAwait(false);
                 return CacheResponse.Empty;
             }
 
@@ -72,16 +72,30 @@ namespace Calinga.NET.Caching
             return Task.CompletedTask;
         }
 
+        #region Privat helper Methods
+
         private string CreateKey(string language)
         {
             return Invariant($"Language_{language}");
         }
 
-        private bool IsCacheExpiry()
+        private bool IsCacheExpired()
         {
             _translationsCache.TryGetValue(ExpirationDateKey, out var expiryDate);
 
-            return _dateTimeService.GetCurrentDateTime() >= _dateTimeService.ConvertToDateTime(expiryDate);
+            return _dateTimeService.GetCurrentDateTime() >= ConvertToDateTime(expiryDate);
         }
+
+        private DateTime ConvertToDateTime(object? date)
+        {
+            return Convert.ToDateTime(date);
+        }
+
+        private DateTime GetExpirationDate(uint? expiration)
+        {
+            return expiration == null || expiration == 0 ? DateTime.MaxValue : DateTime.Now.AddSeconds(expiration.Value);
+        }
+
+        #endregion Privat helper Methods
     }
 }
