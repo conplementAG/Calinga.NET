@@ -25,12 +25,12 @@ namespace Calinga.NET
         }
 
         public CalingaService(CalingaServiceSettings settings)
-            : this(new CascadedCachingService(new InMemoryCachingService(), new FileCachingService(settings)), new ConsumerHttpClient(settings), settings)
+            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)), new ConsumerHttpClient(settings), settings)
         {
         }
 
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient)
-            : this(new CascadedCachingService(new InMemoryCachingService(), new FileCachingService(settings)), new ConsumerHttpClient(settings, httpClient), settings)
+            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)), new ConsumerHttpClient(settings, httpClient), settings)
         {
         }
 
@@ -102,7 +102,7 @@ namespace Calinga.NET
         public Task ClearCache()
         {
             _languages = null;
-             return _cachingService.ClearCache();
+            return _cachingService.ClearCache();
         }
 
         private void ValidateSettings(CalingaServiceSettings setting)

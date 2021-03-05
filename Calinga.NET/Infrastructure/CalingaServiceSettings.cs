@@ -20,5 +20,7 @@
         public string CacheDirectory { get; set; }
 
         public string ConsumerApiBaseUrl { get; set; } = "https://api.calinga.io/v3";
+
+        public uint MemoryCacheExpirationIntervalInSeconds { get; set; }
     }
 }
