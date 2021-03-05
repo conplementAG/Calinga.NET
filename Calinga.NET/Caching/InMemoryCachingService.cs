@@ -1,26 +1,44 @@
-﻿using System.Collections.Generic;
+﻿using static System.FormattableString;
+
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Primitives;
 
-using static System.FormattableString;
+using Calinga.NET.Infrastructure;
 
 namespace Calinga.NET.Caching
 {
     public class InMemoryCachingService : ICachingService
     {
         private readonly IMemoryCache _translationsCache;
+        private readonly IDateTimeService _dateTimeService;
         private static CancellationTokenSource _resetCacheToken = new CancellationTokenSource();
 
-        public InMemoryCachingService()
+        private const string ExpirationDateKey = "ExpirationTime";
+        private readonly DateTime _expirationDate;
+        private readonly bool _withExpirationDate;
+
+        public InMemoryCachingService(CalingaServiceSettings settings)
         {
             _translationsCache = new MemoryCache(new MemoryCacheOptions());
+            _dateTimeService = new DateTimeService();
+           
+            _expirationDate = _dateTimeService.GetExpirationDate(settings.MemoryCacheExpirationIntervalInSeconds);
+            _withExpirationDate = _expirationDate != DateTime.MaxValue;
         }
 
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
+            if (_withExpirationDate && IsCacheExpiry())
+            {
+                _ = ClearCache();
+                return CacheResponse.Empty;
+            }
+
             if (_translationsCache.TryGetValue(CreateKey(language), out var translationsFromCache))
             {
                 return new CacheResponse((IReadOnlyDictionary<string, string>)translationsFromCache, true);
@@ -35,6 +53,10 @@ namespace Calinga.NET.Caching
             options.AddExpirationToken(new CancellationChangeToken(_resetCacheToken.Token));
 
             _translationsCache.Set(CreateKey(language), translations, options);
+
+            if (_withExpirationDate)
+                _translationsCache.Set(ExpirationDateKey, _expirationDate, options);
+
             return Task.CompletedTask;
         }
 
@@ -53,6 +75,13 @@ namespace Calinga.NET.Caching
         private string CreateKey(string language)
         {
             return Invariant($"Language_{language}");
+        }
+
+        private bool IsCacheExpiry()
+        {
+            _translationsCache.TryGetValue(ExpirationDateKey, out var expiryDate);
+
+            return _dateTimeService.GetCurrentDateTime() >= _dateTimeService.ConvertToDateTime(expiryDate);
         }
     }
 }

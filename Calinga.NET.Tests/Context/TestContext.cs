@@ -6,11 +6,13 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
-using Calinga.NET.Caching;
-using Calinga.NET.Infrastructure;
+
 using Moq;
 using Moq.Protected;
 using Newtonsoft.Json;
+
+using Calinga.NET.Caching;
+using Calinga.NET.Infrastructure;
 
 namespace Calinga.NET.Tests.Context
 {
@@ -60,7 +62,7 @@ namespace Calinga.NET.Tests.Context
 
             var fileService = BuildFileCachingServiceMock();
 
-            var cachingService = new CascadedCachingService(new InMemoryCachingService(), fileService.Object);
+            var cachingService = new CascadedCachingService(new InMemoryCachingService(Settings), fileService.Object);
             var consumerHttpClient = new ConsumerHttpClient(Settings, httpClient);
 
             return new CalingaService(cachingService, consumerHttpClient, Settings);
@@ -125,13 +127,14 @@ namespace Calinga.NET.Tests.Context
                         {
                             return new HttpResponseMessage
                             {
-                                StatusCode = HttpStatusCode.NotFound, Content = new StringContent("not found")
+                                StatusCode = HttpStatusCode.NotFound,
+                                Content = new StringContent("not found")
                             };
                         }
                     }
 
                     return new HttpResponseMessage
-                        {StatusCode = HttpStatusCode.NotImplemented, Content = new StringContent("{}")};
+                    { StatusCode = HttpStatusCode.NotImplemented, Content = new StringContent("{}") };
                 });
             var httpClient = new HttpClient(messageHandler.Object);
             return httpClient;
