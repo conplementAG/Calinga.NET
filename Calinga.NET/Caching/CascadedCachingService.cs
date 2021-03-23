@@ -18,6 +18,7 @@ namespace Calinga.NET.Caching
             foreach (var cachingService in _cachingServices)
             {
                 var cacheResponse = await cachingService.GetTranslations(language, includeDrafts);
+                
                 if (cacheResponse.FoundInCache)
                 {
                     return cacheResponse;
