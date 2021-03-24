@@ -15,7 +15,6 @@ namespace Calinga.NET
         private readonly IConsumerHttpClient _consumerHttpClient;
         private readonly CalingaServiceSettings _settings;
         private IEnumerable<string>? _languages;
-        private Dictionary<string, IReadOnlyDictionary<string, string>> _translations;
 
         public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings)
         {
@@ -72,34 +71,27 @@ namespace Calinga.NET
         {
             Guard.IsNotNullOrWhiteSpace(language);
 
-            _translations ??= new Dictionary<string, IReadOnlyDictionary<string, string>>();
+            IReadOnlyDictionary<string, string> cachedTranslations;
+            var cacheResponse = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
 
-            if (!_translations.ContainsKey(language))
+            if (cacheResponse.FoundInCache)
             {
-                IReadOnlyDictionary<string, string> cachedTranslations;
-                var cacheResponse = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
+                cachedTranslations = cacheResponse.Result;
+            }
+            else
+            {
+                cachedTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
 
-                if (cacheResponse.FoundInCache)
+                if (cachedTranslations == null || !cachedTranslations.Any())
                 {
-                    cachedTranslations = cacheResponse.Result;
-                }
-                else
-                {
-                    cachedTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
-
-                    if (cachedTranslations == null || !cachedTranslations.Any())
-                    {
-                        throw new TranslationsNotAvailableException(
-                            $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
-                    }
-
-                    await _cachingService.StoreTranslationsAsync(language, cachedTranslations).ConfigureAwait(false);
+                    throw new TranslationsNotAvailableException(
+                        $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
                 }
 
-                _translations.Add(language, _settings.IsDevMode ? cachedTranslations.ToDictionary(k => k.Key, k => k.Key) : cachedTranslations);
+                await _cachingService.StoreTranslationsAsync(language, cachedTranslations).ConfigureAwait(false);
             }
 
-            return _translations[language];
+            return _settings.IsDevMode ? cachedTranslations.ToDictionary(k => k.Key, k => k.Key) : cachedTranslations;
         }
 
         public async Task<IEnumerable<string>> GetLanguagesAsync()
@@ -110,11 +102,11 @@ namespace Calinga.NET
         public Task ClearCache()
         {
             _languages = null;
-            _translations = null;
+
             return _cachingService.ClearCache();
         }
 
-        private void ValidateSettings(CalingaServiceSettings setting)
+        private static void ValidateSettings(CalingaServiceSettings setting)
         {
             Guard.IsNotNull(setting, nameof(setting));
             Guard.IsNotNullOrWhiteSpace(setting.Project);

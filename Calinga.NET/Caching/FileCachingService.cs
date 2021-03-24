@@ -19,7 +19,7 @@ namespace Calinga.NET.Caching
 
         public FileCachingService(CalingaServiceSettings settings)
         {
-            _filePath = Path.Combine(new[] { settings.CacheDirectory, settings.Organization, settings.Team, settings.Project });
+            _filePath = Path.Combine(settings.CacheDirectory, settings.Organization, settings.Team, settings.Project);
             _settings = settings;
         }
 
