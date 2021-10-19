@@ -29,6 +29,7 @@ namespace Calinga.NET.Tests
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Cache_Translations_En));
 
             _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult(TestData.Languages));
+            _consumerHttpClient.Setup(x => x.GetReferenceLanguageAsync()).Returns(Task.FromResult(TestData.Language_EN));
         }
 
         [TestMethod]
@@ -121,6 +122,19 @@ namespace Calinga.NET.Tests
             languages.Count().Should().Be(2);
             languages.Should().Contain(TestData.Language_DE);
             languages.Should().Contain(TestData.Language_EN);
+        }
+
+        [TestMethod]
+        public async Task GetReferenceLanguage_ShouldReturnReferenceLanguageFromTestData()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            var referenceLanguage = await service.GetReferenceLanguage().ConfigureAwait(false);
+
+            // Assert
+            referenceLanguage.Should().Be(TestData.Language_EN);
         }
 
         [TestMethod]

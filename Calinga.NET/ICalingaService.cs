@@ -11,6 +11,8 @@ namespace Calinga.NET
 
         Task<IEnumerable<string>> GetLanguagesAsync();
 
+        Task<string> GetReferenceLanguage();
+
         ILanguageContext CreateContext(string language);
 
         Task ClearCache();

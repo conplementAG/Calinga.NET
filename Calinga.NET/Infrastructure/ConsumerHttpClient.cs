@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 using Calinga.NET.Infrastructure.Exceptions;
+using System;
 
 namespace Calinga.NET.Infrastructure
 {
@@ -73,6 +74,25 @@ namespace Calinga.NET.Infrastructure
             }
         }
 
+        public async Task<string> GetReferenceLanguageAsync()
+        {
+            try
+            {
+                var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
+                var responseBody = await GetResponseBody(url).ConfigureAwait(false);
+
+                return MapGetLanguagesToReferenceLanguage(responseBody);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new LanguagesNotAvailableException("Failed to fetch languages (reference language)", ex);
+            }
+            catch(InvalidOperationException ex)
+            {
+                throw new LanguagesNotAvailableException("Reference language not found", ex);
+            }
+        }
+
         #region private static Methods
 
         private async Task<string> GetResponseBody(string url)
@@ -95,6 +115,22 @@ namespace Calinga.NET.Infrastructure
                 var languageTag = l["tag"];
                 return string.IsNullOrEmpty(languageTag) ? l["name"] : $"{l["name"]}~{languageTag}";
             });
+        }
+
+        private static string MapGetLanguagesToReferenceLanguage(string json)
+        {
+            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json)
+                .Select(l =>
+                {
+                    var languageTag = l["tag"];
+                    var isRefernece = l["isReference"];
+                    return new
+                    {
+                        Name = string.IsNullOrEmpty(languageTag) ? l["name"] : $"{l["name"]}~{languageTag}",
+                        IsReference = Convert.ToBoolean(isRefernece),
+                    };
+                })
+                .Single(l => l.IsReference).Name;
         }
 
         private void EnsureApiTokenHeaderIsSet()
