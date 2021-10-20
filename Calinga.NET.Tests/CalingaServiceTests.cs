@@ -51,7 +51,7 @@ namespace Calinga.NET.Tests
             Func<Task> getTranslations = async () => await service.TranslateAsync("", TestData.Language_DE).ConfigureAwait(false);
 
             // Assert
-            getTranslations.Should().Throw<ArgumentNullException>();
+            getTranslations.Should().ThrowAsync<ArgumentNullException>();
         }
 
         [TestMethod]
@@ -64,7 +64,7 @@ namespace Calinga.NET.Tests
             Func<Task> getTranslations = async () => await service.TranslateAsync(TestData.Key_1, "").ConfigureAwait(false);
 
             // Assert
-            getTranslations.Should().Throw<ArgumentNullException>();
+            getTranslations.Should().ThrowAsync<ArgumentNullException>();
         }
 
         [TestMethod]
@@ -91,7 +91,7 @@ namespace Calinga.NET.Tests
             Func<Task> translate = async () => await context.TranslateAsync("").ConfigureAwait(false);
 
             // Assert
-            translate.Should().Throw<ArgumentNullException>();
+            translate.Should().ThrowAsync<ArgumentNullException>();
         }
 
         [TestMethod]
