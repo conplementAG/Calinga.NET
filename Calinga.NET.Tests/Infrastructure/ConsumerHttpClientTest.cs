@@ -36,7 +36,7 @@ namespace Calinga.NET.Tests.Infrastructure
             Func<Task<string>> referenceLanguageFunc = async () => await client.GetReferenceLanguageAsync().ConfigureAwait(false);
 
             // Assert
-            referenceLanguageFunc.Should().Throw<LanguagesNotAvailableException>();
+            referenceLanguageFunc.Should().ThrowAsync<LanguagesNotAvailableException>();
         }
 
         [TestMethod]
