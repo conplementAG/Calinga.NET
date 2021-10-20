@@ -15,6 +15,7 @@ namespace Calinga.NET
         private readonly IConsumerHttpClient _consumerHttpClient;
         private readonly CalingaServiceSettings _settings;
         private IEnumerable<string>? _languages;
+        private string? _referenceLanguage;
 
         public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings)
         {
@@ -97,6 +98,11 @@ namespace Calinga.NET
         public async Task<IEnumerable<string>> GetLanguagesAsync()
         {
             return _languages ??= await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
+        }
+
+        public async Task<string> GetReferenceLanguage()
+        {
+            return _referenceLanguage ??= await _consumerHttpClient.GetReferenceLanguageAsync().ConfigureAwait(false);
         }
 
         public Task ClearCache()
