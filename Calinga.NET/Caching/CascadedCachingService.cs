@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -13,12 +14,22 @@ namespace Calinga.NET.Caching
             _cachingServices = cachingServices;
         }
 
+        public Task<CachedLanguageListResponse> GetLanguagesList()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task StoreLanguagesListAsync()
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
             foreach (var cachingService in _cachingServices)
             {
                 var cacheResponse = await cachingService.GetTranslations(language, includeDrafts);
-                
+
                 if (cacheResponse.FoundInCache)
                 {
                     return cacheResponse;
@@ -31,14 +42,14 @@ namespace Calinga.NET.Caching
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
         {
             var tasks = _cachingServices.Select(x => x.StoreTranslationsAsync(language, translations));
-            
+
             return Task.WhenAll(tasks.ToArray());
         }
 
         public Task ClearCache()
         {
             var tasks = _cachingServices.Select(x => x.ClearCache());
-            
+
             return Task.WhenAll(tasks.ToArray());
         }
     }
