@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
@@ -26,12 +26,14 @@ namespace Calinga.NET
         }
 
         public CalingaService(CalingaServiceSettings settings)
-            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)), new ConsumerHttpClient(settings), settings)
+            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)),
+                new ConsumerHttpClient(settings), settings)
         {
         }
 
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient)
-            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)), new ConsumerHttpClient(settings, httpClient), settings)
+            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)),
+                new ConsumerHttpClient(settings, httpClient), settings)
         {
         }
 
@@ -52,13 +54,16 @@ namespace Calinga.NET
             Guard.IsNotNullOrWhiteSpace(language);
             Guard.IsNotNullOrWhiteSpace(key);
 
-            if (_settings.IsDevMode) return key;
+            if (_settings.IsDevMode)
+                return key;
 
             try
             {
                 var translations = await GetTranslationsAsync(language).ConfigureAwait(false);
                 var translation = translations.FirstOrDefault(k => k.Key == key);
-                if (translation.Equals(default(KeyValuePair<string, string>))) return key;
+
+                if (translation.Equals(default(KeyValuePair<string, string>)))
+                    return key;
 
                 return translation.Value;
             }
@@ -97,7 +102,18 @@ namespace Calinga.NET
 
         public async Task<IEnumerable<string>> GetLanguagesAsync()
         {
-            return _languages ??= await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
+            try
+            {
+                var languageList = await GetLanguageListAsync();
+
+                return languageList;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+
+                throw;
+            }
         }
 
         public async Task<string> GetReferenceLanguage()
@@ -110,6 +126,38 @@ namespace Calinga.NET
             _languages = null;
 
             return _cachingService.ClearCache();
+        }
+
+        public async Task<IEnumerable<string>> GetLanguageListAsync()
+        {
+            IEnumerable<string> cachedList;
+            var cachedListResponse = await _cachingService.GetLanguagesList().ConfigureAwait(false);
+
+            if (cachedListResponse.FoundInCache)
+            {
+                cachedList = cachedListResponse.Result;
+            }
+            else
+            {
+                cachedList = await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
+
+                if (cachedList == null || !cachedList.Any())
+                {
+                    throw new TranslationsNotAvailableException(
+                        $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}");
+                }
+
+                await _cachingService.StoreLanguageListAsync(cachedList);
+            }
+
+            /*
+             * TODO:
+             *      1- go get from cache----------------------Done
+             *      2- if empty, get from http client, then
+             *      3- Store in Cache
+             *      4- Return result
+             */
+            return cachedList;
         }
 
         private static void ValidateSettings(CalingaServiceSettings setting)

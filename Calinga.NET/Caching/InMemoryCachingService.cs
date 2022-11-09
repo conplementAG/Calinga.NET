@@ -1,19 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
 using Calinga.NET.Infrastructure;
 
 namespace Calinga.NET.Caching
 {
     public class InMemoryCachingService : ICachingService
     {
-        private Dictionary<string, IReadOnlyDictionary<string, string>> _translations;
         private readonly IDateTimeService _dateTimeService;
+        private readonly uint? _memoryCacheExpirationIntervalInSeconds;
+        private readonly bool _withExpirationDate;
 
         private DateTime _expirationDate;
-        private readonly bool _withExpirationDate;
-        private readonly uint? _memoryCacheExpirationIntervalInSeconds;
+        private Dictionary<string, IReadOnlyDictionary<string, string>> _translations;
 
         public InMemoryCachingService(IDateTimeService timeService, CalingaServiceSettings settings)
         {
@@ -29,10 +28,21 @@ namespace Calinga.NET.Caching
             if (_withExpirationDate && IsCacheExpired())
             {
                 await ClearCache().ConfigureAwait(false);
+
                 return CacheResponse.Empty;
             }
 
             return _translations.ContainsKey(language) ? new CacheResponse(_translations[language], true) : CacheResponse.Empty;
+        }
+
+        public Task<CachedLanguageListResponse> GetLanguagesList()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task StoreLanguageListAsync(IEnumerable<string> languageList)
+        {
+            throw new NotImplementedException();
         }
 
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
