@@ -29,9 +29,19 @@ namespace Calinga.NET.Caching
             return CacheResponse.Empty;
         }
 
-        public Task<CachedLanguageListResponse> GetLanguagesList()
+        public async Task<CachedLanguageListResponse> GetLanguagesList()
         {
-            throw new NotImplementedException();
+            foreach (var cachingService in _cachingServices)
+            {
+                var cacheResponse = await cachingService.GetLanguagesList();
+
+                if (cacheResponse.FoundInCache)
+                {
+                    return cacheResponse;
+                }
+            }
+
+            return CachedLanguageListResponse.Empty;
         }
 
         public Task StoreLanguageListAsync(IEnumerable<string> languageList)

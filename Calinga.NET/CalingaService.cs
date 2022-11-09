@@ -150,13 +150,6 @@ namespace Calinga.NET
                 await _cachingService.StoreLanguageListAsync(cachedList);
             }
 
-            /*
-             * TODO:
-             *      1- go get from cache----------------------Done
-             *      2- if empty, get from http client, then
-             *      3- Store in Cache
-             *      4- Return result
-             */
             return cachedList;
         }
 
