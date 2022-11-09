@@ -1,32 +1,35 @@
-﻿using static System.FormattableString;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Calinga.NET.Caching;
-using FluentAssertions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
+using FluentAssertions;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
+using static System.FormattableString;
 
 namespace Calinga.NET.Tests
 {
     [TestClass]
     public class CalingaServiceTests
     {
+        private static CalingaServiceSettings _testCalingaServiceSettings;
         private Mock<ICachingService> _cachingService;
         private Mock<IConsumerHttpClient> _consumerHttpClient;
-        private static CalingaServiceSettings _testCalingaServiceSettings;
 
-       [TestInitialize]
+        [TestInitialize]
         public void Init()
         {
             _testCalingaServiceSettings = CreateSettings();
             _cachingService = new Mock<ICachingService>();
             _consumerHttpClient = new Mock<IConsumerHttpClient>();
-            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Cache_Translations_De));
-            _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Cache_Translations_En));
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .Returns(Task.FromResult(TestData.Cache_Translations_De));
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts))
+                .Returns(Task.FromResult(TestData.Cache_Translations_En));
+            _cachingService.Setup(x => x.GetLanguagesList()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<string>(), false)));
 
             _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult(TestData.Languages));
             _consumerHttpClient.Setup(x => x.GetReferenceLanguageAsync()).Returns(Task.FromResult(TestData.Language_EN));
@@ -156,7 +159,8 @@ namespace Calinga.NET.Tests
         {
             // Arrange
             var cachingService = new Mock<ICachingService>();
-            cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts)).Throws<TranslationsNotAvailableException>();
+            cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .Throws<TranslationsNotAvailableException>();
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).Throws<TranslationsNotAvailableException>();
             var service = new CalingaService(cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
@@ -215,21 +219,24 @@ namespace Calinga.NET.Tests
             translations.Should().Contain(t => t.Value.Equals(TestData.Key_2));
         }
 
-        private static CalingaServiceSettings CreateSettings(bool isDevMode = false) => new CalingaServiceSettings
+        private static CalingaServiceSettings CreateSettings(bool isDevMode = false)
         {
-            Organization = "SDK",
+            return new CalingaServiceSettings
+            {
+                Organization = "SDK",
 
-            Team = "Default Team",
+                Team = "Default Team",
 
-            Project = "SampleSDK",
+                Project = "SampleSDK",
 
-            ApiToken = "761dc484a4051e1290c7d48574e09978",
+                ApiToken = "761dc484a4051e1290c7d48574e09978",
 
-            IncludeDrafts = false,
+                IncludeDrafts = false,
 
-            IsDevMode = isDevMode,
+                IsDevMode = isDevMode,
 
-            CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
-        };
+                CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
+            };
+        }
     }
 }
