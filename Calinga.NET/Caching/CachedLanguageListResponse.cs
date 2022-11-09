@@ -4,12 +4,12 @@ namespace Calinga.NET.Caching
 {
     public class CachedLanguageListResponse
     {
-        public IReadOnlyList<string> Result { get; }
+        public IReadOnlyList<Language> Result { get; }
         public bool FoundInCache { get; }
 
-        public static CachedLanguageListResponse Empty => new CachedLanguageListResponse(new List<string>(), false);
+        public static CachedLanguageListResponse Empty => new CachedLanguageListResponse(new List<Language>(), false);
 
-        public CachedLanguageListResponse(IReadOnlyList<string> result, bool foundInCache)
+        public CachedLanguageListResponse(IReadOnlyList<Language> result, bool foundInCache)
         {
             Result = result;
             FoundInCache = foundInCache;

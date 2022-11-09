@@ -47,7 +47,7 @@ namespace Calinga.NET.Caching
             return CacheResponse.Empty;
         }
 
-        public async Task<CachedLanguageListResponse> GetLanguagesList()
+        public async Task<CachedLanguageListResponse> GetLanguages()
         {
             var path = Path.Combine(_filePath, "Languages");
 
@@ -61,7 +61,7 @@ namespace Calinga.NET.Caching
                     {
                         var fileContent = await streamReader.ReadToEndAsync().ConfigureAwait(false);
 
-                        return new CachedLanguageListResponse(JsonConvert.DeserializeObject<List<string>>(fileContent), true);
+                        return new CachedLanguageListResponse(JsonConvert.DeserializeObject<List<Language>>(fileContent), true);
                     }
                 }
                 catch (IOException ex)
@@ -79,7 +79,7 @@ namespace Calinga.NET.Caching
                 return Task.CompletedTask;
 
             var directoryInfo = new DirectoryInfo(_filePath);
-            WalkDirectoryTree(directoryInfo);
+            DeleteDirectoryRecursively(directoryInfo);
 
             return Task.CompletedTask;
         }
@@ -108,12 +108,12 @@ namespace Calinga.NET.Caching
             }
         }
 
-        public async Task StoreLanguageListAsync(IEnumerable<string> languagesList)
+        public async Task StoreLanguagesAsync(IEnumerable<Language> languagesList)
         {
             if (_settings.DoNotWriteCacheFiles)
                 return;
 
-            var path = Path.Combine(_filePath, "Languages");
+            var path = Path.Combine(_filePath, "Languages.json");
 
             Directory.CreateDirectory(_filePath);
 
@@ -137,7 +137,7 @@ namespace Calinga.NET.Caching
             return Invariant($"{language.ToUpper()}.json");
         }
 
-        private static void WalkDirectoryTree(DirectoryInfo directory)
+        private static void DeleteDirectoryRecursively(DirectoryInfo directory)
         {
             if (!directory.Exists)
                 return;
@@ -163,7 +163,7 @@ namespace Calinga.NET.Caching
 
             foreach (var directoryInfo in subDirectories)
             {
-                WalkDirectoryTree(directoryInfo);
+                DeleteDirectoryRecursively(directoryInfo);
 
                 if (directoryInfo.GetFiles().Length == 0 && directoryInfo.GetDirectories().Length == 0)
                 {

@@ -14,7 +14,7 @@ namespace Calinga.NET.Caching
         private readonly bool _withExpirationDate;
 
         private DateTime _expirationDate;
-        private List<string> _languagesList;
+        private List<Language> _languagesList;
         private Dictionary<string, IReadOnlyDictionary<string, string>> _translations;
 
         public InMemoryCachingService(IDateTimeService timeService, CalingaServiceSettings settings)
@@ -24,7 +24,7 @@ namespace Calinga.NET.Caching
             _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
             _withExpirationDate = _expirationDate != DateTime.MaxValue;
             _translations = new Dictionary<string, IReadOnlyDictionary<string, string>>();
-            _languagesList = new List<string>();
+            _languagesList = new List<Language>();
         }
 
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
@@ -39,7 +39,7 @@ namespace Calinga.NET.Caching
             return _translations.ContainsKey(language) ? new CacheResponse(_translations[language], true) : CacheResponse.Empty;
         }
 
-        public async Task<CachedLanguageListResponse> GetLanguagesList()
+        public async Task<CachedLanguageListResponse> GetLanguages()
         {
             if (_withExpirationDate && IsCacheExpired())
             {
@@ -51,7 +51,15 @@ namespace Calinga.NET.Caching
             return _languagesList.Any() ? new CachedLanguageListResponse(_languagesList, true) : CachedLanguageListResponse.Empty;
         }
 
-        public Task StoreLanguageListAsync(IEnumerable<string> languageList)
+        public Task ClearCache()
+        {
+            _translations = new Dictionary<string, IReadOnlyDictionary<string, string>>();
+            _expirationDate = DateTime.MinValue;
+
+            return Task.CompletedTask;
+        }
+
+        public Task StoreLanguagesAsync(IEnumerable<Language> languageList)
         {
             _languagesList = languageList.ToList();
 
@@ -62,14 +70,6 @@ namespace Calinga.NET.Caching
         {
             _translations.Add(language, translations);
             _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
-
-            return Task.CompletedTask;
-        }
-
-        public Task ClearCache()
-        {
-            _translations = new Dictionary<string, IReadOnlyDictionary<string, string>>();
-            _expirationDate = DateTime.MinValue;
 
             return Task.CompletedTask;
         }

@@ -29,7 +29,7 @@ namespace Calinga.NET.Tests
                 .Returns(Task.FromResult(TestData.Cache_Translations_De));
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts))
                 .Returns(Task.FromResult(TestData.Cache_Translations_En));
-            _cachingService.Setup(x => x.GetLanguagesList()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<string>(), false)));
+            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<Language>(), false)));
 
             _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult(TestData.Languages));
             _consumerHttpClient.Setup(x => x.GetReferenceLanguageAsync()).Returns(Task.FromResult(TestData.Language_EN));

@@ -1,24 +1,22 @@
-﻿using static System.FormattableString;
-
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
-
-using Newtonsoft.Json;
-
+using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure.Exceptions;
-using System;
+using Newtonsoft.Json;
+using static System.FormattableString;
 
 namespace Calinga.NET.Infrastructure
 {
     public class ConsumerHttpClient : IConsumerHttpClient
     {
         private const string API_TOKEN_HEADER_NAME = "api-token";
+        private readonly HttpClient _httpClient;
 
         private readonly CalingaServiceSettings _settings;
-        private readonly HttpClient _httpClient;
 
         public ConsumerHttpClient(CalingaServiceSettings settings)
             : this(settings, new HttpClient())
@@ -36,10 +34,12 @@ namespace Calinga.NET.Infrastructure
 
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
         {
-            string queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
-            var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
+            var queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
+            var url = Invariant(
+                $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
 
             var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 throw new AuthorizationFailedException();
@@ -47,7 +47,8 @@ namespace Calinga.NET.Infrastructure
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                throw new TranslationsNotFoundException($"Translations not found for Organization = '{_settings.Organization}', Team = '{_settings.Team}', Project = '{_settings.Project}', Language = '{language}'");
+                throw new TranslationsNotFoundException(
+                    $"Translations not found for Organization = '{_settings.Organization}', Team = '{_settings.Team}', Project = '{_settings.Project}', Language = '{language}'");
             }
 
             if (!response.IsSuccessStatusCode)
@@ -56,17 +57,18 @@ namespace Calinga.NET.Infrastructure
             }
 
             var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
             return CreateTranslationsDictionary(body);
         }
 
-        public async Task<IEnumerable<string>> GetLanguagesAsync()
+        public async Task<IEnumerable<Language>> GetLanguagesAsync()
         {
             try
             {
                 var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
                 var responseBody = await GetResponseBody(url).ConfigureAwait(false);
 
-                return MapGetLanguagesResult(responseBody);
+                return DeserializeLanguages(responseBody);
             }
             catch (HttpRequestException ex)
             {
@@ -74,23 +76,9 @@ namespace Calinga.NET.Infrastructure
             }
         }
 
-        public async Task<string> GetReferenceLanguageAsync()
+        public Task<string> GetReferenceLanguageAsync()
         {
-            try
-            {
-                var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
-                var responseBody = await GetResponseBody(url).ConfigureAwait(false);
-
-                return MapGetLanguagesToReferenceLanguage(responseBody);
-            }
-            catch (HttpRequestException ex)
-            {
-                throw new LanguagesNotAvailableException("Failed to fetch languages (reference language)", ex);
-            }
-            catch(InvalidOperationException ex)
-            {
-                throw new LanguagesNotAvailableException("Reference language not found", ex);
-            }
+            throw new NotImplementedException();
         }
 
         #region private static Methods
@@ -108,29 +96,20 @@ namespace Calinga.NET.Infrastructure
             return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
         }
 
-        private static IEnumerable<string> MapGetLanguagesResult(string json)
-        {
-            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json).Select(l =>
-            {
-                var languageTag = l["tag"];
-                return string.IsNullOrEmpty(languageTag) ? l["name"] : $"{l["name"]}~{languageTag}";
-            });
-        }
-
-        private static string MapGetLanguagesToReferenceLanguage(string json)
+        private static IEnumerable<Language> DeserializeLanguages(string json)
         {
             return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json)
                 .Select(l =>
                 {
                     var languageTag = l["tag"];
                     var isRefernece = l["isReference"];
-                    return new
+
+                    return new Language
                     {
                         Name = string.IsNullOrEmpty(languageTag) ? l["name"] : $"{l["name"]}~{languageTag}",
-                        IsReference = Convert.ToBoolean(isRefernece),
+                        IsReference = Convert.ToBoolean(isRefernece)
                     };
-                })
-                .Single(l => l.IsReference).Name;
+                });
         }
 
         private void EnsureApiTokenHeaderIsSet()

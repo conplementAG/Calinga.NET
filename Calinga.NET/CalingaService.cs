@@ -104,7 +104,7 @@ namespace Calinga.NET
         {
             try
             {
-                var languageList = await GetLanguageListAsync();
+                var languageList = await GetLanguageListAsync().ConfigureAwait(false);
 
                 return languageList;
             }
@@ -118,7 +118,14 @@ namespace Calinga.NET
 
         public async Task<string> GetReferenceLanguage()
         {
-            return _referenceLanguage ??= await _consumerHttpClient.GetReferenceLanguageAsync().ConfigureAwait(false);
+            var languages = await GetLanguagesInternalAsync();
+
+            if (languages.All(l => l.IsReference == false))
+            {
+                throw new LanguagesNotAvailableException("Reference language not found");
+            }
+
+            return languages.Single(l => l.IsReference).Name;
         }
 
         public Task ClearCache()
@@ -130,8 +137,13 @@ namespace Calinga.NET
 
         public async Task<IEnumerable<string>> GetLanguageListAsync()
         {
-            IEnumerable<string> cachedList;
-            var cachedListResponse = await _cachingService.GetLanguagesList().ConfigureAwait(false);
+            return (await GetLanguagesInternalAsync()).Select(x => x.Name);
+        }
+
+        private async Task<IEnumerable<Language>> GetLanguagesInternalAsync()
+        {
+            IEnumerable<Language> cachedList;
+            var cachedListResponse = await _cachingService.GetLanguages().ConfigureAwait(false);
 
             if (cachedListResponse.FoundInCache)
             {
@@ -147,7 +159,7 @@ namespace Calinga.NET
                         $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}");
                 }
 
-                await _cachingService.StoreLanguageListAsync(cachedList);
+                await _cachingService.StoreLanguagesAsync(cachedList);
             }
 
             return cachedList;

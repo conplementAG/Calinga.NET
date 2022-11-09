@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using Calinga.NET.Caching;
 
 namespace Calinga.NET.Infrastructure
 {
@@ -7,7 +8,7 @@ namespace Calinga.NET.Infrastructure
     {
         Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language);
 
-        Task<IEnumerable<string>> GetLanguagesAsync();
+        Task<IEnumerable<Language>> GetLanguagesAsync();
 
         Task<string> GetReferenceLanguageAsync();
     }

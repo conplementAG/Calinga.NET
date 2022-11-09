@@ -28,11 +28,11 @@ namespace Calinga.NET.Caching
             return CacheResponse.Empty;
         }
 
-        public async Task<CachedLanguageListResponse> GetLanguagesList()
+        public async Task<CachedLanguageListResponse> GetLanguages()
         {
             foreach (var cachingService in _cachingServices)
             {
-                var cacheResponse = await cachingService.GetLanguagesList();
+                var cacheResponse = await cachingService.GetLanguages();
 
                 if (cacheResponse.FoundInCache)
                 {
@@ -43,9 +43,9 @@ namespace Calinga.NET.Caching
             return CachedLanguageListResponse.Empty;
         }
 
-        public Task StoreLanguageListAsync(IEnumerable<string> languageList)
+        public Task StoreLanguagesAsync(IEnumerable<Language> languageList)
         {
-            var tasks = _cachingServices.Select(x => x.StoreLanguageListAsync(languageList));
+            var tasks = _cachingServices.Select(x => x.StoreLanguagesAsync(languageList));
 
             return Task.WhenAll(tasks.ToArray());
         }
