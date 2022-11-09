@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -46,7 +45,9 @@ namespace Calinga.NET.Caching
 
         public Task StoreLanguageListAsync(IEnumerable<string> languageList)
         {
-            throw new NotImplementedException();
+            var tasks = _cachingServices.Select(x => x.StoreLanguageListAsync(languageList));
+
+            return Task.WhenAll(tasks.ToArray());
         }
 
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)

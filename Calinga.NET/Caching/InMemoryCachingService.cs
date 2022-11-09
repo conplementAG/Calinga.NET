@@ -9,11 +9,12 @@ namespace Calinga.NET.Caching
     public class InMemoryCachingService : ICachingService
     {
         private readonly IDateTimeService _dateTimeService;
-        private readonly IReadOnlyList<string> _languagesList;
+
         private readonly uint? _memoryCacheExpirationIntervalInSeconds;
         private readonly bool _withExpirationDate;
 
         private DateTime _expirationDate;
+        private List<string> _languagesList;
         private Dictionary<string, IReadOnlyDictionary<string, string>> _translations;
 
         public InMemoryCachingService(IDateTimeService timeService, CalingaServiceSettings settings)
@@ -52,7 +53,9 @@ namespace Calinga.NET.Caching
 
         public Task StoreLanguageListAsync(IEnumerable<string> languageList)
         {
-            throw new NotImplementedException();
+            _languagesList = languageList.ToList();
+
+            return Task.CompletedTask;
         }
 
         public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
