@@ -12,32 +12,64 @@ namespace Calinga.NET
     {
         private readonly ICachingService _cachingService;
         private readonly IConsumerHttpClient _consumerHttpClient;
+        private readonly ILogger _logger;
         private readonly CalingaServiceSettings _settings;
-        private IEnumerable<string>? _languages;
-        private string? _referenceLanguage;
 
-        public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings)
+
+        public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings, ILogger logger)
         {
             ValidateSettings(settings);
             _cachingService = cachingService;
             _consumerHttpClient = consumerHttpClient;
             _settings = settings;
+            _logger = logger;
+        }
+
+        public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings) : this(
+            cachingService, consumerHttpClient, settings, new DefaultLogger())
+        {
         }
 
         public CalingaService(CalingaServiceSettings settings)
-            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)),
-                new ConsumerHttpClient(settings), settings)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, new DefaultLogger())),
+                new ConsumerHttpClient(settings), settings, new DefaultLogger())
+        {
+        }
+
+        public CalingaService(CalingaServiceSettings settings, ILogger logger)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, logger)),
+                new ConsumerHttpClient(settings), settings, logger)
         {
         }
 
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient)
-            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)),
-                new ConsumerHttpClient(settings, httpClient), settings)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, new DefaultLogger())),
+                new ConsumerHttpClient(settings, httpClient), settings, new DefaultLogger())
         {
         }
 
+        public CalingaService(CalingaServiceSettings settings, HttpClient httpClient, ILogger logger)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, logger)),
+                new ConsumerHttpClient(settings, httpClient), settings, logger)
+        {
+        }
+
+
         public CalingaService(ICachingService cachingService, CalingaServiceSettings settings)
-            : this(cachingService, new ConsumerHttpClient(settings), settings)
+            : this(cachingService, new ConsumerHttpClient(settings), settings, new DefaultLogger())
+        {
+        }
+
+        public CalingaService(ICachingService cachingService, CalingaServiceSettings settings, ILogger logger)
+            : this(cachingService, new ConsumerHttpClient(settings), settings, logger)
         {
         }
 
@@ -118,8 +150,6 @@ namespace Calinga.NET
 
         public Task ClearCache()
         {
-            _languages = null;
-
             return _cachingService.ClearCache();
         }
 

@@ -13,12 +13,14 @@ namespace Calinga.NET.Caching
     {
         private readonly string _filePath;
         private readonly string _languagesCacheFile = Invariant($"Languages.json");
+        private readonly ILogger _logger;
         private readonly CalingaServiceSettings _settings;
 
-        public FileCachingService(CalingaServiceSettings settings)
+        public FileCachingService(CalingaServiceSettings settings, ILogger logger)
         {
             _filePath = Path.Combine(settings.CacheDirectory, settings.Organization, settings.Team, settings.Project);
             _settings = settings;
+            _logger = logger;
         }
 
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
@@ -104,9 +106,9 @@ namespace Calinga.NET.Caching
                 using var outputFile = new StreamWriter(new FileStream(path, FileMode.Create));
                 await outputFile.WriteAsync(JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
             }
-            catch (IOException)
+            catch (IOException ex)
             {
-
+                _logger.Warn(ex.Message);
             }
         }
 
@@ -129,8 +131,9 @@ namespace Calinga.NET.Caching
                 using var outputFile = new StreamWriter(new FileStream(path, FileMode.Create));
                 await outputFile.WriteAsync(JsonConvert.SerializeObject(languagesList)).ConfigureAwait(false);
             }
-            catch (IOException)
+            catch (IOException ex)
             {
+                _logger.Warn(ex.Message);
             }
         }
 
@@ -139,7 +142,7 @@ namespace Calinga.NET.Caching
             return Invariant($"{language.ToUpper()}.json");
         }
 
-        private static void DeleteDirectoryRecursively(DirectoryInfo directory)
+        private void DeleteDirectoryRecursively(DirectoryInfo directory)
         {
             if (!directory.Exists)
                 return;
@@ -190,7 +193,7 @@ namespace Calinga.NET.Caching
             return false;
         }
 
-        private static void RewriteLockedFile(FileInfo file)
+        private void RewriteLockedFile(FileInfo file)
         {
             try
             {
@@ -198,8 +201,9 @@ namespace Calinga.NET.Caching
                 using var fs = new FileStream(file.FullName, FileMode.Create, FileAccess.Write);
                 fs.Dispose();
             }
-            catch (IOException)
+            catch (IOException ex)
             {
+                _logger.Warn(ex.Message);
             }
         }
     }
