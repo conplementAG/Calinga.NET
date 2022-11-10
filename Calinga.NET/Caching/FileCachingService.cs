@@ -106,6 +106,7 @@ namespace Calinga.NET.Caching
             }
             catch (IOException)
             {
+
             }
         }
 

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -102,16 +101,7 @@ namespace Calinga.NET
 
         public async Task<IEnumerable<string>> GetLanguagesAsync()
         {
-            try
-            {
-                return (await FetchLanguagesAsync().ConfigureAwait(false)).Select(x => x.Name);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-
-                throw;
-            }
+            return (await FetchLanguagesAsync().ConfigureAwait(false)).Select(x => x.Name);
         }
 
         public async Task<string> GetReferenceLanguage()
