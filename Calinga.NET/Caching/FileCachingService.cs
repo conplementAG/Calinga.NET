@@ -12,6 +12,7 @@ namespace Calinga.NET.Caching
     public class FileCachingService : ICachingService
     {
         private readonly string _filePath;
+        private readonly string _languagesCacheFile = Invariant($"Languages.json");
         private readonly CalingaServiceSettings _settings;
 
         public FileCachingService(CalingaServiceSettings settings)
@@ -49,7 +50,7 @@ namespace Calinga.NET.Caching
 
         public async Task<CachedLanguageListResponse> GetLanguages()
         {
-            var path = Path.Combine(_filePath, "Languages");
+            var path = Path.Combine(_filePath, _languagesCacheFile);
 
             if (File.Exists(path))
             {
@@ -113,7 +114,7 @@ namespace Calinga.NET.Caching
             if (_settings.DoNotWriteCacheFiles)
                 return;
 
-            var path = Path.Combine(_filePath, "Languages.json");
+            var path = Path.Combine(_filePath, _languagesCacheFile);
 
             Directory.CreateDirectory(_filePath);
 
