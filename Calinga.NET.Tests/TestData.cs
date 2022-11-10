@@ -9,6 +9,7 @@ namespace Calinga.NET.Tests
     {
         internal const string Language_DE = "de";
         internal const string Language_EN = "en";
+        internal const string Language_FR = "fr";
         internal const string Key_1 = "UnitTest_Key1";
         internal const string Key_2 = "UnitTest_Key2";
         internal const string Translation_Key_1 = "translation for key 1";
@@ -26,7 +27,8 @@ namespace Calinga.NET.Tests
 
         internal static IEnumerable<Language> Languages => new List<Language>
         {
-            new Language { Name = Language_DE, IsReference = false }, new Language { Name = Language_EN, IsReference = true }
+            new Language { Name = Language_DE, IsReference = false },
+            new Language { Name = Language_EN, IsReference = true }
         };
 
         private static IReadOnlyDictionary<string, string> CreateTranslations(string language)

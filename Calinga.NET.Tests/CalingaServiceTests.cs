@@ -116,17 +116,58 @@ namespace Calinga.NET.Tests
         {
             // Arrange
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
-            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<Language>(), false)));
-
+            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<Language>
+            {
+                new Language { Name = TestData.Language_FR, IsReference = true }
+            }, true)));
+            _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult<IEnumerable<Language>>(new List<Language>
+            {
+                new Language
+                {
+                    Name = TestData.Language_EN,
+                    IsReference = true
+                },
+                new Language
+                {
+                    Name = TestData.Language_DE,
+                    IsReference = true
+                }
+            }));
 
             // Act
             var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
 
             // Assert
-            languages.Count().Should().Be(2);
-            languages.Should().Contain(TestData.Language_DE);
-            languages.Should().Contain(TestData.Language_EN);
+            languages.Should().BeEquivalentTo(new List<string> { TestData.Language_FR });
         }
+
+        [TestMethod]
+        public async Task GetLanguages_ShouldReturnLanguagesFromHttpClient_WhenNotFoundInCache()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+            _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult<IEnumerable<Language>>(new List<Language>
+            {
+                new Language
+                {
+                    Name = TestData.Language_EN,
+                    IsReference = true
+                },
+                new Language
+                {
+                    Name = TestData.Language_DE,
+                    IsReference = true
+                }
+            }));
+            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(CachedLanguageListResponse.Empty));
+
+            // Act
+            var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
+
+            // Assert
+            languages.Should().BeEquivalentTo(new List<string> { TestData.Language_EN, TestData.Language_DE });
+        }
+
 
         [TestMethod]
         public async Task GetReferenceLanguage_ShouldReturnReferenceLanguageFromTestData()
