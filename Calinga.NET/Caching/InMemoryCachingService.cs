@@ -62,6 +62,7 @@ namespace Calinga.NET.Caching
         public Task StoreLanguagesAsync(IEnumerable<Language> languageList)
         {
             _languagesList = languageList.ToList();
+            _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
 
             return Task.CompletedTask;
         }
@@ -86,9 +87,9 @@ namespace Calinga.NET.Caching
             return Convert.ToDateTime(date);
         }
 
-        private static DateTime GetExpirationDate(uint? expiration)
+        private DateTime GetExpirationDate(uint? expiration)
         {
-            return expiration == null || expiration == 0 ? DateTime.MaxValue : DateTime.Now.AddSeconds(expiration.Value);
+            return expiration == null || expiration == 0 ? DateTime.MaxValue : _dateTimeService.GetCurrentDateTime().AddSeconds(expiration.Value);
         }
 
         #endregion Privat helper Methods

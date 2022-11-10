@@ -104,9 +104,7 @@ namespace Calinga.NET
         {
             try
             {
-                var languageList = await GetLanguageListAsync().ConfigureAwait(false);
-
-                return languageList;
+                return (await FetchLanguagesAsync().ConfigureAwait(false)).Select(x => x.Name);
             }
             catch (Exception e)
             {
@@ -118,7 +116,7 @@ namespace Calinga.NET
 
         public async Task<string> GetReferenceLanguage()
         {
-            var languages = await GetLanguagesInternalAsync();
+            var languages = await FetchLanguagesAsync().ConfigureAwait(false);
 
             if (languages.All(l => l.IsReference == false))
             {
@@ -135,12 +133,7 @@ namespace Calinga.NET
             return _cachingService.ClearCache();
         }
 
-        public async Task<IEnumerable<string>> GetLanguageListAsync()
-        {
-            return (await GetLanguagesInternalAsync()).Select(x => x.Name);
-        }
-
-        private async Task<IEnumerable<Language>> GetLanguagesInternalAsync()
+        private async Task<IEnumerable<Language>> FetchLanguagesAsync()
         {
             IEnumerable<Language> cachedList;
             var cachedListResponse = await _cachingService.GetLanguages().ConfigureAwait(false);
