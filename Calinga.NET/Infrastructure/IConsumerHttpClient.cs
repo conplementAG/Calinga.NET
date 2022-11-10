@@ -9,7 +9,5 @@ namespace Calinga.NET.Infrastructure
         Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language);
 
         Task<IEnumerable<Language>> GetLanguagesAsync();
-
-        Task<string> GetReferenceLanguageAsync();
     }
 }

@@ -76,18 +76,6 @@ namespace Calinga.NET.Infrastructure
             }
         }
 
-        public async Task<string> GetReferenceLanguageAsync()
-        {
-            var languages = await GetLanguagesAsync();
-
-            if (languages.All(l => l.IsReference == false))
-            {
-                throw new LanguagesNotAvailableException("Reference language not found");
-            }
-
-            return languages.Single(l => l.IsReference).Name;
-        }
-
         #region private static Methods
 
         private async Task<string> GetResponseBody(string url)

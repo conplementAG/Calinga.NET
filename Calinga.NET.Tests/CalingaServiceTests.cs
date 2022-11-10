@@ -32,11 +32,10 @@ namespace Calinga.NET.Tests
             _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<Language>(), false)));
 
             _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult(TestData.Languages));
-            _consumerHttpClient.Setup(x => x.GetReferenceLanguageAsync()).Returns(Task.FromResult(TestData.Language_EN));
         }
 
         [TestMethod]
-        public void Constructor_ShouldThrown_WhenSettingsNull()
+        public void Constructor_ShouldThrow_WhenSettingsNull()
         {
             // Arrange
             Action constructor = () => new CalingaService(null!);
@@ -46,7 +45,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void Translate_ShouldThrown_WhenKeyEmpty()
+        public void Translate_ShouldThrow_WhenKeyEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -59,7 +58,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void Translate_ShouldThrown_WhenKeyLanguageEmpty()
+        public void Translate_ShouldThrow_WhenKeyLanguageEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -72,7 +71,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void CreateContext_ShouldThrown_WhenKeyLanguageEmpty()
+        public void CreateContext_ShouldThrow_WhenKeyLanguageEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -85,7 +84,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void ContextTranslate_ShouldThrown_WhenKeyLanguageEmpty()
+        public void ContextTranslate_ShouldThrow_WhenKeyLanguageEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -113,10 +112,12 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetLanguages_ShouldReturnLanguagesFromTestData()
+        public async Task GetLanguages_ShouldReturnLanguagesFromCache()
         {
             // Arrange
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<Language>(), false)));
+
 
             // Act
             var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
