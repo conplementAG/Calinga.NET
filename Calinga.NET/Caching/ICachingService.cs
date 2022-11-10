@@ -8,6 +8,7 @@ namespace Calinga.NET.Caching
         Task<CacheResponse> GetTranslations(string languageName, bool includeDrafts);
 
         Task<CachedLanguageListResponse> GetLanguages();
+
         Task StoreLanguagesAsync(IEnumerable<Language> languageList);
 
         Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations);

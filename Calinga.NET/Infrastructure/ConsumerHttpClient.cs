@@ -76,9 +76,16 @@ namespace Calinga.NET.Infrastructure
             }
         }
 
-        public Task<string> GetReferenceLanguageAsync()
+        public async Task<string> GetReferenceLanguageAsync()
         {
-            throw new NotImplementedException();
+            var languages = await GetLanguagesAsync();
+
+            if (languages.All(l => l.IsReference == false))
+            {
+                throw new LanguagesNotAvailableException("Reference language not found");
+            }
+
+            return languages.Single(l => l.IsReference).Name;
         }
 
         #region private static Methods
@@ -93,12 +100,12 @@ namespace Calinga.NET.Infrastructure
 
         private static Dictionary<string, string> CreateTranslationsDictionary(string json)
         {
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json)!;
         }
 
         private static IEnumerable<Language> DeserializeLanguages(string json)
         {
-            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json)
+            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json)!
                 .Select(l =>
                 {
                     var languageTag = l["tag"];
