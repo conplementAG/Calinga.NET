@@ -1,39 +1,41 @@
-﻿using static System.FormattableString;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Calinga.NET.Caching;
-using FluentAssertions;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
+using FluentAssertions;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
+using static System.FormattableString;
 
 namespace Calinga.NET.Tests
 {
     [TestClass]
     public class CalingaServiceTests
     {
+        private static CalingaServiceSettings _testCalingaServiceSettings;
         private Mock<ICachingService> _cachingService;
         private Mock<IConsumerHttpClient> _consumerHttpClient;
-        private static CalingaServiceSettings _testCalingaServiceSettings;
 
-       [TestInitialize]
+        [TestInitialize]
         public void Init()
         {
             _testCalingaServiceSettings = CreateSettings();
             _cachingService = new Mock<ICachingService>();
             _consumerHttpClient = new Mock<IConsumerHttpClient>();
-            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Cache_Translations_De));
-            _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts)).Returns(Task.FromResult(TestData.Cache_Translations_En));
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .Returns(Task.FromResult(TestData.Cache_Translations_De));
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_EN, _testCalingaServiceSettings.IncludeDrafts))
+                .Returns(Task.FromResult(TestData.Cache_Translations_En));
+            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<Language>(), false)));
 
             _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult(TestData.Languages));
-            _consumerHttpClient.Setup(x => x.GetReferenceLanguageAsync()).Returns(Task.FromResult(TestData.Language_EN));
         }
 
         [TestMethod]
-        public void Constructor_ShouldThrown_WhenSettingsNull()
+        public void Constructor_ShouldThrow_WhenSettingsNull()
         {
             // Arrange
             Action constructor = () => new CalingaService(null!);
@@ -43,7 +45,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void Translate_ShouldThrown_WhenKeyEmpty()
+        public void Translate_ShouldThrow_WhenKeyEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -56,7 +58,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void Translate_ShouldThrown_WhenKeyLanguageEmpty()
+        public void Translate_ShouldThrow_WhenKeyLanguageEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -69,7 +71,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void CreateContext_ShouldThrown_WhenKeyLanguageEmpty()
+        public void CreateContext_ShouldThrow_WhenKeyLanguageEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -82,7 +84,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public void ContextTranslate_ShouldThrown_WhenKeyLanguageEmpty()
+        public void ContextTranslate_ShouldThrow_WhenKeyLanguageEmpty()
         {
             // Arrange
             var service = new CalingaService(_testCalingaServiceSettings);
@@ -110,19 +112,62 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetLanguages_ShouldReturnLanguagesFromTestData()
+        public async Task GetLanguages_ShouldReturnLanguagesFromCache()
         {
             // Arrange
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(new CachedLanguageListResponse(new List<Language>
+            {
+                new Language { Name = TestData.Language_FR, IsReference = true }
+            }, true)));
+            _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult<IEnumerable<Language>>(new List<Language>
+            {
+                new Language
+                {
+                    Name = TestData.Language_EN,
+                    IsReference = true
+                },
+                new Language
+                {
+                    Name = TestData.Language_DE,
+                    IsReference = true
+                }
+            }));
 
             // Act
             var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
 
             // Assert
-            languages.Count().Should().Be(2);
-            languages.Should().Contain(TestData.Language_DE);
-            languages.Should().Contain(TestData.Language_EN);
+            languages.Should().BeEquivalentTo(new List<string> { TestData.Language_FR });
         }
+
+        [TestMethod]
+        public async Task GetLanguages_ShouldReturnLanguagesFromHttpClient_WhenNotFoundInCache()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+            _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).Returns(Task.FromResult<IEnumerable<Language>>(new List<Language>
+            {
+                new Language
+                {
+                    Name = TestData.Language_EN,
+                    IsReference = true
+                },
+                new Language
+                {
+                    Name = TestData.Language_DE,
+                    IsReference = true
+                }
+            }));
+            _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(CachedLanguageListResponse.Empty));
+
+            // Act
+            var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
+
+            // Assert
+            languages.Should().BeEquivalentTo(new List<string> { TestData.Language_EN, TestData.Language_DE });
+        }
+
 
         [TestMethod]
         public async Task GetReferenceLanguage_ShouldReturnReferenceLanguageFromTestData()
@@ -156,7 +201,8 @@ namespace Calinga.NET.Tests
         {
             // Arrange
             var cachingService = new Mock<ICachingService>();
-            cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts)).Throws<TranslationsNotAvailableException>();
+            cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .Throws<TranslationsNotAvailableException>();
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).Throws<TranslationsNotAvailableException>();
             var service = new CalingaService(cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
@@ -215,21 +261,24 @@ namespace Calinga.NET.Tests
             translations.Should().Contain(t => t.Value.Equals(TestData.Key_2));
         }
 
-        private static CalingaServiceSettings CreateSettings(bool isDevMode = false) => new CalingaServiceSettings
+        private static CalingaServiceSettings CreateSettings(bool isDevMode = false)
         {
-            Organization = "SDK",
+            return new CalingaServiceSettings
+            {
+                Organization = "SDK",
 
-            Team = "Default Team",
+                Team = "Default Team",
 
-            Project = "SampleSDK",
+                Project = "SampleSDK",
 
-            ApiToken = "761dc484a4051e1290c7d48574e09978",
+                ApiToken = "761dc484a4051e1290c7d48574e09978",
 
-            IncludeDrafts = false,
+                IncludeDrafts = false,
 
-            IsDevMode = isDevMode,
+                IsDevMode = isDevMode,
 
-            CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
-        };
+                CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
+            };
+        }
     }
 }

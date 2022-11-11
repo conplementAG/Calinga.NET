@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
@@ -13,30 +12,64 @@ namespace Calinga.NET
     {
         private readonly ICachingService _cachingService;
         private readonly IConsumerHttpClient _consumerHttpClient;
+        private readonly ILogger _logger;
         private readonly CalingaServiceSettings _settings;
-        private IEnumerable<string>? _languages;
-        private string? _referenceLanguage;
 
-        public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings)
+
+        public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings, ILogger logger)
         {
             ValidateSettings(settings);
             _cachingService = cachingService;
             _consumerHttpClient = consumerHttpClient;
             _settings = settings;
+            _logger = logger;
+        }
+
+        public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings) : this(
+            cachingService, consumerHttpClient, settings, new DefaultLogger())
+        {
         }
 
         public CalingaService(CalingaServiceSettings settings)
-            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)), new ConsumerHttpClient(settings), settings)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, new DefaultLogger())),
+                new ConsumerHttpClient(settings), settings, new DefaultLogger())
+        {
+        }
+
+        public CalingaService(CalingaServiceSettings settings, ILogger logger)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, logger)),
+                new ConsumerHttpClient(settings), settings, logger)
         {
         }
 
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient)
-            : this(new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings), new FileCachingService(settings)), new ConsumerHttpClient(settings, httpClient), settings)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, new DefaultLogger())),
+                new ConsumerHttpClient(settings, httpClient), settings, new DefaultLogger())
         {
         }
 
+        public CalingaService(CalingaServiceSettings settings, HttpClient httpClient, ILogger logger)
+            : this(
+                new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
+                    new FileCachingService(settings, logger)),
+                new ConsumerHttpClient(settings, httpClient), settings, logger)
+        {
+        }
+
+
         public CalingaService(ICachingService cachingService, CalingaServiceSettings settings)
-            : this(cachingService, new ConsumerHttpClient(settings), settings)
+            : this(cachingService, new ConsumerHttpClient(settings), settings, new DefaultLogger())
+        {
+        }
+
+        public CalingaService(ICachingService cachingService, CalingaServiceSettings settings, ILogger logger)
+            : this(cachingService, new ConsumerHttpClient(settings), settings, logger)
         {
         }
 
@@ -52,13 +85,16 @@ namespace Calinga.NET
             Guard.IsNotNullOrWhiteSpace(language);
             Guard.IsNotNullOrWhiteSpace(key);
 
-            if (_settings.IsDevMode) return key;
+            if (_settings.IsDevMode)
+                return key;
 
             try
             {
                 var translations = await GetTranslationsAsync(language).ConfigureAwait(false);
                 var translation = translations.FirstOrDefault(k => k.Key == key);
-                if (translation.Equals(default(KeyValuePair<string, string>))) return key;
+
+                if (translation.Equals(default(KeyValuePair<string, string>)))
+                    return key;
 
                 return translation.Value;
             }
@@ -97,19 +133,49 @@ namespace Calinga.NET
 
         public async Task<IEnumerable<string>> GetLanguagesAsync()
         {
-            return _languages ??= await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
+            return (await FetchLanguagesAsync().ConfigureAwait(false)).Select(x => x.Name);
         }
 
         public async Task<string> GetReferenceLanguage()
         {
-            return _referenceLanguage ??= await _consumerHttpClient.GetReferenceLanguageAsync().ConfigureAwait(false);
+            var languages = await FetchLanguagesAsync().ConfigureAwait(false);
+
+            if (languages.All(l => l.IsReference == false))
+            {
+                throw new LanguagesNotAvailableException("Reference language not found");
+            }
+
+            return languages.Single(l => l.IsReference).Name;
         }
 
         public Task ClearCache()
         {
-            _languages = null;
-
             return _cachingService.ClearCache();
+        }
+
+        private async Task<IEnumerable<Language>> FetchLanguagesAsync()
+        {
+            IEnumerable<Language> cachedList;
+            var cachedListResponse = await _cachingService.GetLanguages().ConfigureAwait(false);
+
+            if (cachedListResponse.FoundInCache)
+            {
+                cachedList = cachedListResponse.Result;
+            }
+            else
+            {
+                cachedList = await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
+
+                if (cachedList == null || !cachedList.Any())
+                {
+                    throw new TranslationsNotAvailableException(
+                        $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}");
+                }
+
+                await _cachingService.StoreLanguagesAsync(cachedList);
+            }
+
+            return cachedList;
         }
 
         private static void ValidateSettings(CalingaServiceSettings setting)

@@ -1,12 +1,10 @@
 ﻿using System;
 using System.Threading.Tasks;
-
+using Calinga.NET.Caching;
+using Calinga.NET.Infrastructure;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
-
-using Calinga.NET.Caching;
-using Calinga.NET.Infrastructure;
 
 namespace Calinga.NET.Tests
 {
@@ -35,31 +33,80 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetTranslations_ShoulClearCache_WhenExpired()
+        public async Task GetTranslations_ShouldClearCache_WhenCacheExpired()
         {
             // Arrange
             var timeService = new Mock<IDateTimeService>();
-            var service = new InMemoryCachingService(timeService.Object, GetSettings(2));
-            await service.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
+            var sut = new InMemoryCachingService(timeService.Object, GetSettings(2));
+            await sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
 
             // Act
             timeService.Setup(t => t.GetCurrentDateTime()).Returns(DateTime.Now.AddSeconds(7));
-            var actual = await service.GetTranslations(TestData.Language_DE, false);
+            var actual = await sut.GetTranslations(TestData.Language_DE, false);
 
             // Assert
             actual.Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
         }
 
         [TestMethod]
-        public async Task GetTranslations_ShoulReturnTranslations_WhenCacheIsNotExpired()
+        public async Task GetLanguages_ShouldReturnCachedLanguages_WhenCacheNotExpired()
         {
             // Arrange
-            var service = new InMemoryCachingService(new DateTimeService(), GetSettings(5));
-
-            await service.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
+            var timeService = new Mock<IDateTimeService>();
+            var sut = new InMemoryCachingService(timeService.Object, GetSettings(2));
+            await sut.StoreLanguagesAsync(TestData.Languages);
 
             // Act
-            var actual = await service.GetTranslations(TestData.Language_DE, false);
+            var actual = await sut.GetLanguages();
+
+            // Assert
+            actual.FoundInCache.Should().BeTrue();
+            actual.Result.Should().BeEquivalentTo(TestData.Languages);
+        }
+
+        [TestMethod]
+        public async Task GetLanguages_ShouldClearCache_WhenCacheExpired()
+        {
+            // Arrange
+            var timeService = new Mock<IDateTimeService>();
+            var sut = new InMemoryCachingService(timeService.Object, GetSettings(2));
+            await sut.StoreLanguagesAsync(TestData.Languages);
+
+            // Act
+            timeService.Setup(t => t.GetCurrentDateTime()).Returns(DateTime.Now.AddSeconds(7));
+            var actual = await sut.GetLanguages();
+
+            // Assert
+            actual.Should().BeEquivalentTo(CachedLanguageListResponse.Empty);
+        }
+
+        [TestMethod]
+        public async Task GetLanguages_ShouldReturnCachedLanguages_WhenCacheHasBeenRenewed()
+        {
+            // Arrange
+            var timeService = new Mock<IDateTimeService>();
+            var sut = new InMemoryCachingService(timeService.Object, GetSettings(2));
+            timeService.Setup(t => t.GetCurrentDateTime()).Returns(DateTime.Now.AddSeconds(5));
+            await sut.StoreLanguagesAsync(TestData.Languages);
+
+            // Act
+            var actual = await sut.GetLanguages();
+
+            // Assert
+            actual.FoundInCache.Should().BeTrue();
+            actual.Result.Should().BeEquivalentTo(TestData.Languages);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ShouldReturnTranslations_WhenCacheIsNotExpired()
+        {
+            // Arrange
+            var sut = new InMemoryCachingService(new DateTimeService(), GetSettings(5));
+
+            await sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
+
+            // Act
+            var actual = await sut.GetTranslations(TestData.Language_DE, false);
 
             // Assert
             actual.Result.Should().BeEquivalentTo(TestData.Translations_De);
@@ -90,6 +137,9 @@ namespace Calinga.NET.Tests
             (await _sut.GetTranslations(TestData.Language_EN, false)).Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
         }
 
-        private CalingaServiceSettings GetSettings(uint? expiration = null) => new CalingaServiceSettings() { MemoryCacheExpirationIntervalInSeconds = expiration == null ? default : expiration.Value };
+        private CalingaServiceSettings GetSettings(uint? expiration = null)
+        {
+            return new CalingaServiceSettings { MemoryCacheExpirationIntervalInSeconds = expiration == null ? default : expiration.Value };
+        }
     }
 }

@@ -1,19 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-
 using Calinga.NET.Infrastructure;
 
 namespace Calinga.NET.Caching
 {
     public class InMemoryCachingService : ICachingService
     {
-        private Dictionary<string, IReadOnlyDictionary<string, string>> _translations;
         private readonly IDateTimeService _dateTimeService;
 
-        private DateTime _expirationDate;
-        private readonly bool _withExpirationDate;
         private readonly uint? _memoryCacheExpirationIntervalInSeconds;
+        private readonly bool _withExpirationDate;
+
+        private DateTime _expirationDate;
+        private List<Language> _languagesList;
+        private Dictionary<string, IReadOnlyDictionary<string, string>> _translations;
 
         public InMemoryCachingService(IDateTimeService timeService, CalingaServiceSettings settings)
         {
@@ -22,6 +24,7 @@ namespace Calinga.NET.Caching
             _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
             _withExpirationDate = _expirationDate != DateTime.MaxValue;
             _translations = new Dictionary<string, IReadOnlyDictionary<string, string>>();
+            _languagesList = new List<Language>();
         }
 
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
@@ -29,24 +32,45 @@ namespace Calinga.NET.Caching
             if (_withExpirationDate && IsCacheExpired())
             {
                 await ClearCache().ConfigureAwait(false);
+
                 return CacheResponse.Empty;
             }
 
             return _translations.ContainsKey(language) ? new CacheResponse(_translations[language], true) : CacheResponse.Empty;
         }
 
-        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
+        public async Task<CachedLanguageListResponse> GetLanguages()
         {
-            _translations.Add(language, translations);
-            _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
+            if (_withExpirationDate && IsCacheExpired())
+            {
+                await ClearCache().ConfigureAwait(false);
 
-            return Task.CompletedTask;
+                return CachedLanguageListResponse.Empty;
+            }
+
+            return _languagesList.Any() ? new CachedLanguageListResponse(_languagesList, true) : CachedLanguageListResponse.Empty;
         }
 
         public Task ClearCache()
         {
             _translations = new Dictionary<string, IReadOnlyDictionary<string, string>>();
             _expirationDate = DateTime.MinValue;
+
+            return Task.CompletedTask;
+        }
+
+        public Task StoreLanguagesAsync(IEnumerable<Language> languageList)
+        {
+            _languagesList = languageList.ToList();
+            _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
+
+            return Task.CompletedTask;
+        }
+
+        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
+        {
+            _translations.Add(language, translations);
+            _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
 
             return Task.CompletedTask;
         }
@@ -63,9 +87,9 @@ namespace Calinga.NET.Caching
             return Convert.ToDateTime(date);
         }
 
-        private static DateTime GetExpirationDate(uint? expiration)
+        private DateTime GetExpirationDate(uint? expiration)
         {
-            return expiration == null || expiration == 0 ? DateTime.MaxValue : DateTime.Now.AddSeconds(expiration.Value);
+            return expiration == null || expiration == 0 ? DateTime.MaxValue : _dateTimeService.GetCurrentDateTime().AddSeconds(expiration.Value);
         }
 
         #endregion Privat helper Methods
