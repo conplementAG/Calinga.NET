@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <PackageId>Calinga.NET</PackageId>
     <Description>Library to integrate Calinga in .NET projects</Description>
-    <Version>1.10.0</Version>
+    <Version>2.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

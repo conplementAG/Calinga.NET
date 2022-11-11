@@ -42,7 +42,9 @@ Package to connect and use the calinga service in .NET applications
 
 ## Custom Caching
 
-Calinga uses out of the box in memory caching with a fallback to filesystem cache. You can overwrite ICachingService with the implementation of your choice.
+Calinga uses out of the box in memory caching with a fallback to filesystem cache. You can override ICachingService with the implementation of your choice.
+
+Languages used as well as a list of all available languages, and reference language are cached in memory and in the `CacheDirectory` provided in Settings.
 
 ## Custom HttpClient
 
