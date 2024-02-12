@@ -42,9 +42,15 @@ Package to connect and use the calinga service in .NET applications
 
 ## Custom Caching
 
-Calinga uses out of the box in memory caching with a fallback to filesystem cache. You can override ICachingService with the implementation of your choice.
+Calinga uses out of the box in memory caching with a fallback to optional filesystem cache. You can override ICachingService with the implementation of your choice.
 
-Languages used as well as a list of all available languages, and reference language are cached in memory and in the `CacheDirectory` provided in Settings.
+To enable the **optional filesystem caching**, the variable `DoNotWriteCacheFiles` in the configuration has to be set to `true`. When `DoNotWriteCacheFiles` is set to `false`, a copy of the entire language strings will be saved on disk at the `CacheDirectory` from the configuration, this copy will remain in use until `ClearCache()` is called.
+
+When a translation for a string is called, Calinga.Net will check if the Key exists in its In-Memory cache, and that the In-memory cache has not yet expired, then return the translation value. If the In-memory cache was expired, it will continue to the following source, the cache stored in the filesystem and return the value. If the key was not found in the filesystem cache, Calinga.Net will send a request to Calinga API to get a new translation.
+
+If the filesystem cache is used, you will have to manually update it by calling `ClearCache()` whenever it suits your use case, in order to discard the old json files and reload a fresh copy from the following Calinga API Call.
+
+If the `DoNotWriteCacheFiles` was set to `true`, then once the cache expires, Calinga.Net will fetch the translations again from the Calinga API without looking in the local cache.
 
 ## Custom HttpClient
 
