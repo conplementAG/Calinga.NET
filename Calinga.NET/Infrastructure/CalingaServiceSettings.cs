@@ -24,5 +24,15 @@
         public uint MemoryCacheExpirationIntervalInSeconds { get; set; }
 
         public bool DoNotWriteCacheFiles { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether the system should only fetch files from the cache and not download them from the internet.
+        /// </summary>
+        public bool UseCacheOnly { get; set; }
+        
+        /// <summary>
+        /// Gets or sets a value indicating whether the system should fallback to the reference language if an error occurs or the requested language could not be found.
+        /// </summary>
+        public bool FallbackToReferenceLanguage { get; set; }
     }
 }
