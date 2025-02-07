@@ -169,7 +169,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(_testCalingaServiceSettings);
 
             // Act
-            Func<Task> getTranslations = async () => await service.TranslateAsync("", TestData.Language_DE).ConfigureAwait(false);
+            Func<Task> getTranslations = async () => await service.TranslateAsync("", TestData.Language_DE);
 
             // Assert
             getTranslations.Should().ThrowAsync<ArgumentNullException>();
@@ -182,7 +182,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(_testCalingaServiceSettings);
 
             // Act
-            Func<Task> getTranslations = async () => await service.TranslateAsync(TestData.Key_1, "").ConfigureAwait(false);
+            Func<Task> getTranslations = async () => await service.TranslateAsync(TestData.Key_1, "");
 
             // Assert
             getTranslations.Should().ThrowAsync<ArgumentNullException>();
@@ -209,7 +209,7 @@ namespace Calinga.NET.Tests
             var context = new LanguageContext(TestData.Language_DE, service);
 
             // Act
-            Func<Task> translate = async () => await context.TranslateAsync("").ConfigureAwait(false);
+            Func<Task> translate = async () => await context.TranslateAsync("");
 
             // Assert
             translate.Should().ThrowAsync<ArgumentNullException>();
@@ -222,7 +222,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
             // Act
-            var translation = await service.TranslateAsync(TestData.Key_1, TestData.Language_DE).ConfigureAwait(false);
+            var translation = await service.TranslateAsync(TestData.Key_1, TestData.Language_DE);
 
             // Assert
             translation.Should().Be(Invariant($"{TestData.Language_DE} {TestData.Translation_Key_1}"));
@@ -242,7 +242,7 @@ namespace Calinga.NET.Tests
             }));
 
             // Act
-            var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
+            var languages = await service.GetLanguagesAsync();
 
             // Assert
             languages.Should().BeEquivalentTo(new List<string> { TestData.Language_FR });
@@ -260,7 +260,7 @@ namespace Calinga.NET.Tests
             _cachingService.Setup(x => x.GetLanguages()).Returns(Task.FromResult(CachedLanguageListResponse.Empty));
 
             // Act
-            var languages = await service.GetLanguagesAsync().ConfigureAwait(false);
+            var languages = await service.GetLanguagesAsync();
 
             // Assert
             languages.Should().BeEquivalentTo(new List<string> { TestData.Language_EN, TestData.Language_DE });
@@ -273,7 +273,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
             // Act
-            var referenceLanguage = await service.GetReferenceLanguage().ConfigureAwait(false);
+            var referenceLanguage = await service.GetReferenceLanguage();
 
             // Assert
             referenceLanguage.Should().Be(TestData.Language_EN);
@@ -288,7 +288,7 @@ namespace Calinga.NET.Tests
             _cachingService.Setup(x => x.GetLanguages()).ReturnsAsync(CachedLanguageListResponse.Empty);
 
             // Act
-            Func<Task> getReferenceLanguage = async () => await service.GetReferenceLanguage().ConfigureAwait(false);
+            Func<Task> getReferenceLanguage = async () => await service.GetReferenceLanguage();
 
             // Assert
             await getReferenceLanguage.Should().ThrowAsync<LanguagesNotAvailableException>();
@@ -303,7 +303,7 @@ namespace Calinga.NET.Tests
             var key = Invariant($"{TestData.Key_1}_Test");
 
             // Act
-            var result = await service.TranslateAsync(key, TestData.Language_DE).ConfigureAwait(false);
+            var result = await service.TranslateAsync(key, TestData.Language_DE);
 
             // Assert
             result.Should().Be(key);
@@ -320,7 +320,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
             // Act
-            var result = await service.TranslateAsync(TestData.Key_1, TestData.Language_DE).ConfigureAwait(false);
+            var result = await service.TranslateAsync(TestData.Key_1, TestData.Language_DE);
 
             // Assert
             result.Should().Be(TestData.Key_1);
@@ -333,7 +333,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
             // Act
-            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE);
 
             // Assert
             translations.Count.Should().Be(2);
@@ -350,7 +350,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
             // Act
-            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE);
 
             // Assert
             translations.Any().Should().BeTrue();
@@ -364,7 +364,7 @@ namespace Calinga.NET.Tests
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, setting);
 
             // Act
-            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE);
 
             // Assert
             translations.Count.Should().Be(2);
@@ -391,7 +391,7 @@ namespace Calinga.NET.Tests
                     true));
 
             // Act
-            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE);
 
             // Assert
             translations.Should().BeEquivalentTo(TestData.Cache_Translations_En.Result);
@@ -408,7 +408,7 @@ namespace Calinga.NET.Tests
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).Throws<Exception>(); // Should not be called
 
             // Act
-            var translations = await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE);
 
             // Assert
             translations.Should().BeEquivalentTo(TestData.Cache_Translations_De.Result);
@@ -424,7 +424,7 @@ namespace Calinga.NET.Tests
             _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).ReturnsAsync(new List<Language>());
 
             // Act
-            Func<Task> getReferenceLanguage = async () => await service.GetReferenceLanguage().ConfigureAwait(false);
+            Func<Task> getReferenceLanguage = async () => await service.GetReferenceLanguage();
 
             // Assert
             await getReferenceLanguage.Should().ThrowAsync<LanguagesNotAvailableException>();
@@ -441,7 +441,7 @@ namespace Calinga.NET.Tests
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).Throws<TranslationsNotAvailableException>();
 
             // Act
-            Func<Task> getTranslations = async () => await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+            Func<Task> getTranslations = async () => await service.GetTranslationsAsync(TestData.Language_DE);
 
             // Assert
             await getTranslations.Should().ThrowAsync<TranslationsNotAvailableException>();
@@ -459,7 +459,7 @@ namespace Calinga.NET.Tests
             _cachingService.Setup(x => x.GetLanguages()).ReturnsAsync(new CachedLanguageListResponse(new List<Language> { new Language { Name = TestData.Language_DE, IsReference = true } }, true));
 
             // Act
-            Func<Task> getTranslations = async () => await service.GetTranslationsAsync(TestData.Language_DE).ConfigureAwait(false);
+            Func<Task> getTranslations = async () => await service.GetTranslationsAsync(TestData.Language_DE);
 
             // Assert
             await getTranslations.Should().ThrowAsync<TranslationsNotAvailableException>();

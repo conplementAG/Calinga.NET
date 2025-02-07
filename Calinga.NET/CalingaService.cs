@@ -100,8 +100,9 @@ namespace Calinga.NET
 
                 return translation.Value;
             }
-            catch (TranslationsNotAvailableException)
+            catch (TranslationsNotAvailableException e)
             {
+                _logger.Warn($"Translations for {language} not found, returning key: {key}. Error: {e.Message}");
                 return key;
             }
         }
@@ -112,7 +113,7 @@ namespace Calinga.NET
             {
                 Guard.IsNotNullOrWhiteSpace(language);
 
-                IReadOnlyDictionary<string, string>? cachedTranslations = null;
+                IReadOnlyDictionary<string, string>? foundTranslations = null;
                 CacheResponse? cacheResponse = null;
 
                 try
@@ -121,52 +122,50 @@ namespace Calinga.NET
                 }
                 catch (Exception e)
                 {
-                    _logger.Warn("Error while fetching translations from cache. Trying to fetch from consumer API");
+                    _logger.Warn($"Error while fetching translations for language {language} from cache. Trying to fetch from consumer API. Error: {e.Message}");
                 }
 
                 if (cacheResponse is { FoundInCache: true })
                 {
-                    cachedTranslations = cacheResponse.Result;
-                }
-                else
-                {
-                    if (!_settings.UseCacheOnly)
-                    {
-                        try
-                        {
-                            cachedTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
+                    foundTranslations = cacheResponse.Result;
 
-                            if (cachedTranslations != null && cachedTranslations.Any())
-                            {
-                                await _cachingService.StoreTranslationsAsync(language, cachedTranslations).ConfigureAwait(false);
-                            }
-                        }
-                        catch (Exception e)
+                    _logger.Info($"Translations for language {language} fetched from cache");
+                    
+                    return _settings.IsDevMode ? foundTranslations.ToDictionary(k => k.Key, k => k.Key) : foundTranslations;
+                }
+
+                if (!_settings.UseCacheOnly)
+                {
+                    try
+                    {
+                        foundTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
+
+                        if (foundTranslations != null && foundTranslations.Any())
                         {
-                            _logger.Warn($"Error when fetching translations for language {language} from consumer API: {e.Message}");
+                            _logger.Info($"Translations for language {language} fetched from consumer API");
                             
-                            if (!_settings.FallbackToReferenceLanguage)
-                                throw;
+                            await _cachingService.StoreTranslationsAsync(language, foundTranslations).ConfigureAwait(false);
+                            return _settings.IsDevMode ? foundTranslations.ToDictionary(k => k.Key, k => k.Key) : foundTranslations;
                         }
                     }
+                    catch (Exception e)
+                    {
+                        _logger.Warn($"Error when fetching translations for language {language} from consumer API: {e.Message}");
 
-                    if (cachedTranslations != null && cachedTranslations.Any())
-                        return _settings.IsDevMode ? cachedTranslations.ToDictionary(k => k.Key, k => k.Key) : cachedTranslations;
-
-                    var referenceLanguage = await GetReferenceLanguage();
-
-                    if (!_settings.FallbackToReferenceLanguage || referenceLanguage == language)
-                        throw new TranslationsNotAvailableException(
-                            $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
-
-                    _logger.Warn("Translations not found, trying to fetch reference language");
-
-                    language = referenceLanguage;
-
-                    continue;
+                        if (!_settings.FallbackToReferenceLanguage)
+                            throw;
+                    }
                 }
+                
+                var referenceLanguage = await GetReferenceLanguage().ConfigureAwait(false);
 
-                return _settings.IsDevMode ? cachedTranslations.ToDictionary(k => k.Key, k => k.Key) : cachedTranslations;
+                if (!_settings.FallbackToReferenceLanguage || referenceLanguage == language)
+                    throw new TranslationsNotAvailableException(
+                        $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
+
+                _logger.Warn("Translations not found, trying to fetch reference language");
+
+                language = referenceLanguage;
             }
         }
 
@@ -200,33 +199,33 @@ namespace Calinga.NET
 
         private async Task<IEnumerable<Language>> FetchLanguagesAsync()
         {
-            IEnumerable<Language>? cachedList = null;
+            IEnumerable<Language>? foundList = null;
             var cachedListResponse = await _cachingService.GetLanguages().ConfigureAwait(false);
 
             if (cachedListResponse.FoundInCache)
             {
-                cachedList = cachedListResponse.Result;
+                foundList = cachedListResponse.Result;
             }
             else
             {
                 if (!_settings.UseCacheOnly)
                 {
-                    cachedList = await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
+                    foundList = await _consumerHttpClient.GetLanguagesAsync().ConfigureAwait(false);
 
-                    if (cachedList != null && cachedList.Any())
+                    if (foundList != null && foundList.Any())
                     {
-                        await _cachingService.StoreLanguagesAsync(cachedList);
+                        await _cachingService.StoreLanguagesAsync(foundList);
                     }
                 }
             }
-            
-            if (cachedList == null || !cachedList.Any())
+
+            if (foundList == null || !foundList.Any())
             {
                 throw new LanguagesNotAvailableException(
                     $"Languages not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}");
             }
 
-            return cachedList;
+            return foundList;
         }
 
         private static void ValidateSettings(CalingaServiceSettings setting)
@@ -236,6 +235,5 @@ namespace Calinga.NET
             Guard.IsNotNullOrWhiteSpace(setting.Organization);
             Guard.IsNotNullOrWhiteSpace(setting.CacheDirectory);
         }
-        
     }
 }

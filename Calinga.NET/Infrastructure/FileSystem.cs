@@ -35,12 +35,12 @@ namespace Calinga.NET.Infrastructure
 
         public void ReplaceFile(string sourceFileName, string destinationFileName, string destinationBackupFileName)
         {
+            if (!File.Exists(destinationFileName))
+            {
+                File.Create(destinationFileName);
+            }
+            
             File.Replace(sourceFileName, destinationFileName, destinationBackupFileName);
-        }
-        
-        public void MoveFile(string sourceFileName, string destinationFileName)
-        {
-            File.Move(sourceFileName, destinationFileName);
         }
 
         public void DeleteFile(string path)

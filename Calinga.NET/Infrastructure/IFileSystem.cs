@@ -11,7 +11,5 @@ namespace Calinga.NET.Infrastructure
         bool FileExists(string path);
         void ReplaceFile(string sourceFileName, string destinationFileName, string destinationBackupFileName);
         void DeleteFile(string path);
-        void MoveFile(string sourceFileName, string destinationFileName);
-        
     }
 }

@@ -104,14 +104,13 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
-            _fileSystem.Setup(fs => fs.MoveFile(path, prevFilePath));
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
             // Act
             await _service.StoreTranslationsAsync(language, translations);
 
             // Assert
-            _fileSystem.Verify(fs => fs.MoveFile(path, prevFilePath), Times.Once);
+            _fileSystem.Verify(fs => fs.ReplaceFile(path, prevFilePath, null), Times.Once);
             _fileSystem.Verify(fs => fs.ReplaceFile(tempFilePath, path, null), Times.Once);
         }
         

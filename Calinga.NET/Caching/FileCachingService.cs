@@ -33,7 +33,7 @@ namespace Calinga.NET.Caching
 
             try
             {
-                var fileContent = await _fileSystem.ReadAllTextAsync(path);
+                var fileContent = await _fileSystem.ReadAllTextAsync(path).ConfigureAwait(false);
 
                 return new CacheResponse(JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent), true);
             }
@@ -54,7 +54,7 @@ namespace Calinga.NET.Caching
             {
                 try
                 {
-                    var fileContent = await _fileSystem.ReadAllTextAsync(path);
+                    var fileContent = await _fileSystem.ReadAllTextAsync(path).ConfigureAwait(false);
 
                     return new CachedLanguageListResponse(JsonConvert.DeserializeObject<List<Language>>(fileContent), true);
                 }
@@ -107,10 +107,14 @@ namespace Calinga.NET.Caching
                 if (_fileSystem.FileExists(path))
                 {
                     var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.prev.json");
-                    _fileSystem.MoveFile(path, prevFilePath);
+                    _fileSystem.ReplaceFile(path, prevFilePath, null);
+                    
+                    _logger.Info($"Previous version of file {path} was renamed to {prevFilePath}");
                 }
 
                 _fileSystem.ReplaceFile(tempFilePath, path, null);
+                
+                _logger.Info($"Translations for language {language} stored in cache");
             }
             catch (JsonException ex)
             {
@@ -141,7 +145,7 @@ namespace Calinga.NET.Caching
                 if (_fileSystem.FileExists(path))
                 {
                     var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.prev.json");
-                    _fileSystem.MoveFile(path, prevFilePath);
+                    _fileSystem.ReplaceFile(path, prevFilePath, null);
                 }
 
                 _fileSystem.ReplaceFile(tempFilePath, path, null);
@@ -159,7 +163,9 @@ namespace Calinga.NET.Caching
 
         private static string GetFileName(string language)
         {
-            return Invariant($"{language.ToUpper()}.json");
+            var sanitizedLanguage = System.Text.RegularExpressions.Regex.Replace(language, @"[^a-zA-Z0-9_\-~]", "");
+
+            return Invariant($"{sanitizedLanguage}.json");
         }
 
         private void DeleteDirectoryRecursively(DirectoryInfo directory)
