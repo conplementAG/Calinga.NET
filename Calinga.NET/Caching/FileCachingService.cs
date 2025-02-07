@@ -163,7 +163,7 @@ namespace Calinga.NET.Caching
 
         private static string GetFileName(string language)
         {
-            var sanitizedLanguage = System.Text.RegularExpressions.Regex.Replace(language, @"[^a-zA-Z0-9_\-~]", "");
+            var sanitizedLanguage = System.Text.RegularExpressions.Regex.Replace(language, @"[^a-zA-Z0-9_\-~]", "").ToUpper();
 
             return Invariant($"{sanitizedLanguage}.json");
         }
