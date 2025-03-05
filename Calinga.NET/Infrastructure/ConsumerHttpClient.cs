@@ -30,6 +30,19 @@ namespace Calinga.NET.Infrastructure
             _httpClient = httpClient;
 
             EnsureApiTokenHeaderIsSet();
+            AddClientVersionHeader();
+        }
+        
+        private void AddClientVersionHeader()
+        {
+            const string clientVersionHeaderName = "Client-Version";
+  
+            var clientVersion = $"Calinga.Net/{typeof(ConsumerHttpClient).Assembly.GetName().Version}";
+            
+            if (!_httpClient.DefaultRequestHeaders.Contains(clientVersionHeaderName))
+            {
+                _httpClient.DefaultRequestHeaders.Add(clientVersionHeaderName, clientVersion);
+            }
         }
 
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
@@ -40,15 +53,13 @@ namespace Calinga.NET.Infrastructure
 
             var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
 
-            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            switch (response.StatusCode)
             {
-                throw new AuthorizationFailedException();
-            }
-
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                throw new TranslationsNotFoundException(
-                    $"Translations not found for Organization = '{_settings.Organization}', Team = '{_settings.Team}', Project = '{_settings.Project}', Language = '{language}'");
+                case HttpStatusCode.Unauthorized:
+                    throw new AuthorizationFailedException();
+                case HttpStatusCode.NotFound:
+                    throw new TranslationsNotFoundException(
+                        $"Translations not found for Organization = '{_settings.Organization}', Team = '{_settings.Team}', Project = '{_settings.Project}', Language = '{language}'");
             }
 
             if (!response.IsSuccessStatusCode)

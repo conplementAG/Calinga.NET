@@ -23,11 +23,26 @@ Package to connect and use the calinga service in .NET applications
             "ApiToken": <YOUR_TOKEN>,
             "IsDevMode": false,
             "IncludeDrafts": false,
-            "CacheDirectory":  "CacheFiles" # Only needed for default caching implementation,
-            "MemoryCacheExpirationIntervalInSeconds": <YOUR_CACHE_EXPIRATION_INTERVAL_IN_SECONDS> # Only needed for default caching implementation,
-            "DoNotWriteCacheFiles": false # Only needed for default caching implementation
+            "CacheDirectory":  "CacheFiles", # Only needed for default caching implementation,
+            "MemoryCacheExpirationIntervalInSeconds": <YOUR_CACHE_EXPIRATION_INTERVAL_IN_SECONDS>, # Only needed for default caching implementation,
+            "DoNotWriteCacheFiles": false, # Only needed for default caching implementation
+            "UseCacheOnly": false, # Only needed for default caching implementation
+            "FallbackToReferenceLanguage": false
           }
 ```
+
+
+- `Organization`: The name of your organization.
+- `Team`: The name of your team.
+- `Project`: The name of your project.
+- `ApiToken`: The API token used for authentication.
+- `IsDevMode`: A boolean indicating if the service is in development mode. When `true`, it returns keys instead of actual translations.
+- `IncludeDrafts`: A boolean indicating if draft translations should be included.
+- `CacheDirectory`: The directory where cache files are stored. Only needed for the default caching implementation.
+- `MemoryCacheExpirationIntervalInSeconds`: The expiration interval for the in-memory cache in seconds. Only needed for the default caching implementation.
+- `DoNotWriteCacheFiles`: A boolean indicating if cache files should not be written to the filesystem. Only needed for the default caching implementation.
+- `UseCacheOnly`: A boolean indicating if the system should only fetch translations from the cache and not from the internet. Only needed for the default caching implementation.
+- `FallbackToReferenceLanguage`: A boolean indicating if the system should fallback to the reference language if an error occurs or the requested language could not be found.
 
 3. Add the following to your `Startup.ConfigureServices` method:
 
