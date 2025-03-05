@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <PackageId>Calinga.NET</PackageId>
     <Description>Library to integrate Calinga in .NET projects</Description>
-    <Version>2.1.0</Version>
+    <Version>2.1.1</Version>
     <PackageReleaseNotes>Update Newtonsoft.json version from 13.0.1 to 13.0.2</PackageReleaseNotes>
   </PropertyGroup>
 
