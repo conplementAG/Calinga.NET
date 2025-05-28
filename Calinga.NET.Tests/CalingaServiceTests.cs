@@ -478,5 +478,50 @@ namespace Calinga.NET.Tests
                 CacheDirectory = AppDomain.CurrentDomain.BaseDirectory
             };
         }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_ShouldBypassCache_WhenInvalidateCacheIsTrue()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).ReturnsAsync(TestData.Translations_De);
+            // Act
+            var translations = await service.GetTranslationsAsync(TestData.Language_DE, invalidateCache: true);
+            // Assert
+            translations.Should().BeEquivalentTo(TestData.Translations_De);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_ShouldThrow_WhenInvalidateCacheIsTrue_AndHttpClientFails()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).ThrowsAsync(new TranslationsNotAvailableException("fail"));
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, invalidateCache: true);
+            // Assert
+            await act.Should().ThrowAsync<TranslationsNotAvailableException>();
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE), Times.Once);
+        }
+
+ 
+        [TestMethod]
+        public async Task GetTranslationsAsync_ShouldThrowArgumentException_WhenInvalidateCacheIsTrue_AndUseCacheOnlyIsTrue()
+        {
+            // Arrange
+            var settings = CreateSettings();
+            settings.UseCacheOnly = true;
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, invalidateCache: true);
+            // Assert
+            await act.Should().ThrowAsync<ArgumentException>()
+                .WithMessage("Cannot invalidate cache when global Setting 'UseCacheOnly' is set to true.*");
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        }
     }
 }

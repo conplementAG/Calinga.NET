@@ -33,14 +33,19 @@ namespace Calinga.NET.Infrastructure
             return File.Exists(path);
         }
 
-        public void ReplaceFile(string sourceFileName, string destinationFileName, string destinationBackupFileName)
+        public void ReplaceFile(string sourceFileName, string destinationFileName, string? destinationBackupFileName = null)
         {
             if (!File.Exists(destinationFileName))
             {
-                File.Create(destinationFileName);
+                File.Copy(sourceFileName, destinationFileName, true);
+                File.Delete(sourceFileName);
             }
-            
-            File.Replace(sourceFileName, destinationFileName, destinationBackupFileName);
+            else
+            {
+                var backupFile = destinationBackupFileName 
+                                 ?? destinationFileName + ".bak";
+                File.Replace(sourceFileName, destinationFileName, backupFile, true);
+            }
         }
 
         public void DeleteFile(string path)

@@ -1,5 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
@@ -15,6 +18,8 @@ namespace Calinga.NET.Caching
         private readonly ILogger _logger;
         private readonly CalingaServiceSettings _settings;
         private readonly IFileSystem _fileSystem;
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> _fileLocks = new ConcurrentDictionary<string, SemaphoreSlim>();
+        private static readonly SemaphoreSlim _directoryLock = new SemaphoreSlim(1, 1);
 
         public FileCachingService(CalingaServiceSettings settings, ILogger logger, IFileSystem? fileSystem = null)
         {
@@ -34,8 +39,11 @@ namespace Calinga.NET.Caching
             try
             {
                 var fileContent = await _fileSystem.ReadAllTextAsync(path).ConfigureAwait(false);
-
-                return new CacheResponse(JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent), true);
+                var dict = string.IsNullOrWhiteSpace(fileContent)
+                    ? new Dictionary<string, string>()
+                    : JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent) ?? new Dictionary<string, string>();
+                
+                return new CacheResponse(dict, true);
             }
             catch (IOException ex)
             {
@@ -50,21 +58,24 @@ namespace Calinga.NET.Caching
         {
             var path = Path.Combine(_filePath, _languagesCacheFile);
 
-            if (_fileSystem.FileExists(path))
+            if (!_fileSystem.FileExists(path))
+                return CachedLanguageListResponse.Empty;
+            
+            try
             {
-                try
-                {
-                    var fileContent = await _fileSystem.ReadAllTextAsync(path).ConfigureAwait(false);
+                var fileContent = await _fileSystem.ReadAllTextAsync(path).ConfigureAwait(false);
+                var list = string.IsNullOrWhiteSpace(fileContent)
+                    ? new List<Language>()
+                    : JsonConvert.DeserializeObject<List<Language>>(fileContent) ?? new List<Language>();
+                
+                return new CachedLanguageListResponse(list, true);
+            }
+            catch (IOException ex)
+            {
+                var message = Invariant($"The file could not be read: {ex.Message}, path: {path}");
+                _logger.Warn(message);
 
-                    return new CachedLanguageListResponse(JsonConvert.DeserializeObject<List<Language>>(fileContent), true);
-                }
-                catch (IOException ex)
-                {
-                    var message = Invariant($"The file could not be read: {ex.Message}, path: {path}");
-                    _logger.Warn(message);
-
-                    throw new TranslationsNotAvailableException(message, ex);
-                }
+                throw new TranslationsNotAvailableException(message, ex);
             }
 
             return CachedLanguageListResponse.Empty;
@@ -74,15 +85,21 @@ namespace Calinga.NET.Caching
         /// Clears the cache by deleting all files and directories in the cache directory.
         /// If `DoNotWriteCacheFiles` is set to true, the method completes without performing any action.
         /// </summary>
-        public Task ClearCache()
+        public async Task ClearCache()
         {
             if (_settings.DoNotWriteCacheFiles)
-                return Task.CompletedTask;
+                return;
 
-            var directoryInfo = new DirectoryInfo(_filePath);
-            DeleteDirectoryRecursively(directoryInfo);
-
-            return Task.CompletedTask;
+            await _directoryLock.WaitAsync();
+            try
+            {
+                var directoryInfo = new DirectoryInfo(_filePath);
+                await DeleteDirectoryRecursivelyAsync(directoryInfo);
+            }
+            finally
+            {
+                _directoryLock.Release();
+            }
         }
 
         // Stores translations in a file. If `DoNotWriteCacheFiles` is true, the method returns without performing any action.
@@ -95,35 +112,50 @@ namespace Calinga.NET.Caching
                 return;
 
             var path = Path.Combine(_filePath, GetFileName(language));
-            _fileSystem.CreateDirectory(_filePath);
-            var tempFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.temp.json");
-
+            var tempFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.json.temp");
+            SemaphoreSlim? fileLock = null;
+            var fileLockAcquired = false;
+            await _directoryLock.WaitAsync();
             try
             {
-                await _fileSystem.WriteAllTextAsync(tempFilePath, JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
-                var tempFileContent = await _fileSystem.ReadAllTextAsync(tempFilePath).ConfigureAwait(false);
-                JsonConvert.DeserializeObject<Dictionary<string, string>>(tempFileContent);
-
-                if (_fileSystem.FileExists(path))
+                _fileSystem.CreateDirectory(_filePath);
+                fileLock = _fileLocks.GetOrAdd(path, _ => new SemaphoreSlim(1, 1));
+                await fileLock.WaitAsync();
+                fileLockAcquired = true;
+                try
                 {
-                    var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.prev.json");
-                    _fileSystem.ReplaceFile(path, prevFilePath, null);
-                    
-                    _logger.Info($"Previous version of file {path} was renamed to {prevFilePath}");
-                }
+                    await _fileSystem.WriteAllTextAsync(tempFilePath, JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
+                    var tempFileContent = await _fileSystem.ReadAllTextAsync(tempFilePath).ConfigureAwait(false);
+                    JsonConvert.DeserializeObject<Dictionary<string, string>>(tempFileContent);
 
-                _fileSystem.ReplaceFile(tempFilePath, path, null);
+                    if (_fileSystem.FileExists(path))
+                    {
+                        var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.json.prev");
+                        _fileSystem.ReplaceFile(path, prevFilePath);
+                        _logger.Info($"Previous version of file {path} was renamed to {prevFilePath}");
+                    }
+
+                    _fileSystem.ReplaceFile(tempFilePath, path);
+                    _logger.Info($"Translations for language {language} stored in cache");
+                }
+                catch (JsonException ex)
+                {
+                    _logger.Warn($"Invalid JSON in temp file: {ex.Message}");
+                }
+                catch (IOException ex)
+                {
+                    _logger.Warn(ex.Message);
+                }
+            }
+            finally
+            {
+                if (fileLockAcquired && fileLock != null)
+                    fileLock.Release();
                 
-                _logger.Info($"Translations for language {language} stored in cache");
-            }
-            catch (JsonException ex)
-            {
-                _logger.Warn($"Invalid JSON in temp file: {ex.Message}");
-                _fileSystem.DeleteFile(tempFilePath);
-            }
-            catch (IOException ex)
-            {
-                _logger.Warn(ex.Message);
+                _directoryLock.Release();
+                
+                if (_fileSystem.FileExists(tempFilePath))
+                    _fileSystem.DeleteFile(tempFilePath);
             }
         }
 
@@ -134,7 +166,7 @@ namespace Calinga.NET.Caching
 
             var path = Path.Combine(_filePath, _languagesCacheFile);
             _fileSystem.CreateDirectory(_filePath);
-            var tempFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.temp.json");
+            var tempFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.json.temp");
 
             try
             {
@@ -144,11 +176,11 @@ namespace Calinga.NET.Caching
 
                 if (_fileSystem.FileExists(path))
                 {
-                    var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.prev.json");
-                    _fileSystem.ReplaceFile(path, prevFilePath, null);
+                    var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.json.prev");
+                    _fileSystem.ReplaceFile(path, prevFilePath);
                 }
 
-                _fileSystem.ReplaceFile(tempFilePath, path, null);
+                _fileSystem.ReplaceFile(tempFilePath, path);
             }
             catch (JsonException ex)
             {
@@ -158,48 +190,97 @@ namespace Calinga.NET.Caching
             catch (IOException ex)
             {
                 _logger.Warn(ex.Message);
+                _fileSystem.DeleteFile(tempFilePath);
             }
         }
 
         private static string GetFileName(string language)
         {
+            if (language.Contains("..") || Path.IsPathRooted(language))
+                throw new ArgumentException("Invalid language name or path: " + language);
+            
             var sanitizedLanguage = System.Text.RegularExpressions.Regex.Replace(language, @"[^a-zA-Z0-9_\-~]", "").ToUpper();
 
             return Invariant($"{sanitizedLanguage}.json");
         }
 
-        private void DeleteDirectoryRecursively(DirectoryInfo directory)
+        private async Task DeleteDirectoryRecursivelyAsync(DirectoryInfo directory)
         {
-            if (!directory.Exists)
-                return;
-
-            var files = directory.GetFiles();
-
-            if (files.Length > 0)
+            try
             {
-                foreach (var file in files)
+                if (!directory.Exists)
+                    return;
+
+                var files = directory.GetFiles();
+
+                if (files.Length > 0)
                 {
-                    if (!IsFileLocked(file))
+                    foreach (var file in files)
                     {
-                        file.Delete();
+                        try
+                        {
+                            if (!IsFileLocked(file))
+                            {
+                                await Task.Run(() => file.Delete());
+                            }
+                            else
+                            {
+                                await Task.Run(() => RewriteLockedFile(file));
+                            }
+                        }
+                        catch (DirectoryNotFoundException ex)
+                        {
+                            _logger.Warn($"Directory not found while deleting file: {ex.Message}");
+                        }
+                        catch (UnauthorizedAccessException ex)
+                        {
+                            _logger.Warn($"Unauthorized access while deleting file: {ex.Message}");
+                        }
+                        catch (IOException ex)
+                        {
+                            _logger.Warn($"IO error while deleting file: {ex.Message}");
+                        }
                     }
-                    else
+                }
+
+                var subDirectories = directory.GetDirectories();
+
+                foreach (var directoryInfo in subDirectories)
+                {
+                    try
                     {
-                        RewriteLockedFile(file);
+                        await DeleteDirectoryRecursivelyAsync(directoryInfo);
+
+                        if (directoryInfo.GetFiles().Length == 0 && directoryInfo.GetDirectories().Length == 0)
+                        {
+                            await Task.Run(() => directoryInfo.Delete());
+                        }
+                    }
+                    catch (DirectoryNotFoundException ex)
+                    {
+                        _logger.Warn($"Directory not found while deleting subdirectory: {ex.Message}");
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        _logger.Warn($"Unauthorized access while deleting subdirectory: {ex.Message}");
+                    }
+                    catch (IOException ex)
+                    {
+                        _logger.Warn($"IO error while deleting subdirectory: {ex.Message}");
                     }
                 }
             }
-
-            var subDirectories = directory.GetDirectories();
-
-            foreach (var directoryInfo in subDirectories)
+            catch (DirectoryNotFoundException ex)
             {
-                DeleteDirectoryRecursively(directoryInfo);
-
-                if (directoryInfo.GetFiles().Length == 0 && directoryInfo.GetDirectories().Length == 0)
-                {
-                    directoryInfo.Delete();
-                }
+                _logger.Warn($"Directory not found: {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.Warn($"Unauthorized access: {ex.Message}");
+            }
+            catch (IOException ex)
+            {
+                _logger.Warn($"IO error: {ex.Message}");
             }
         }
 
@@ -208,15 +289,12 @@ namespace Calinga.NET.Caching
             try
             {
                 using var stream = file.Open(FileMode.Open, FileAccess.Read, FileShare.None);
-                stream.Dispose();
+                return false;
             }
             catch (IOException)
             {
-                // file is locked
                 return true;
             }
-
-            return false;
         }
 
         private void RewriteLockedFile(FileInfo file)
@@ -225,12 +303,20 @@ namespace Calinga.NET.Caching
             {
                 file.IsReadOnly = false;
                 using var fs = new FileStream(file.FullName, FileMode.Create, FileAccess.Write);
-                fs.Dispose();
+            }
+            catch (DirectoryNotFoundException ex)
+            {
+                _logger.Warn($"Directory not found while rewriting locked file: {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.Warn($"Unauthorized access while rewriting locked file: {ex.Message}");
             }
             catch (IOException ex)
             {
-                _logger.Warn(ex.Message);
+                _logger.Warn($"IO error while rewriting locked file: {ex.Message}");
             }
         }
     }
 }
+

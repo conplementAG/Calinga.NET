@@ -7,7 +7,7 @@ namespace Calinga.NET
     {
         Task<string> TranslateAsync(string key, string language);
 
-        Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language);
+        Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, bool invalidateCache = false);
 
         Task<IEnumerable<string>> GetLanguagesAsync();
 

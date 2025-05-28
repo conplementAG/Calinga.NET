@@ -9,7 +9,7 @@ namespace Calinga.NET.Infrastructure
         Task WriteAllTextAsync(string path, string contents);
         Task<string> ReadAllTextAsync(string path);
         bool FileExists(string path);
-        void ReplaceFile(string sourceFileName, string destinationFileName, string destinationBackupFileName);
+        void ReplaceFile(string sourceFileName, string destinationFileName, string? destinationBackupFileName = null);
         void DeleteFile(string path);
     }
 }
