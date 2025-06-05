@@ -17,7 +17,13 @@ namespace Calinga.NET
         private readonly CalingaServiceSettings _settings;
         private string _referenceLanguage;
 
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with all dependencies.
+        /// </summary>
+        /// <param name="cachingService">The caching service to use for translations and languages.</param>
+        /// <param name="consumerHttpClient">The HTTP client for fetching translations and languages from the API.</param>
+        /// <param name="settings">The Calinga service settings.</param>
+        /// <param name="logger">The logger instance.</param>
         public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings, ILogger logger)
         {
             ValidateSettings(settings);
@@ -27,11 +33,21 @@ namespace Calinga.NET
             _logger = logger;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with a default logger.
+        /// </summary>
+        /// <param name="cachingService">The caching service to use for translations and languages.</param>
+        /// <param name="consumerHttpClient">The HTTP client for fetching translations and languages from the API.</param>
+        /// <param name="settings">The Calinga service settings.</param>
         public CalingaService(ICachingService cachingService, IConsumerHttpClient consumerHttpClient, CalingaServiceSettings settings) : this(
             cachingService, consumerHttpClient, settings, new DefaultLogger())
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with default caching and HTTP client implementations.
+        /// </summary>
+        /// <param name="settings">The Calinga service settings.</param>
         public CalingaService(CalingaServiceSettings settings)
             : this(
                 new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
@@ -40,6 +56,11 @@ namespace Calinga.NET
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with a custom logger.
+        /// </summary>
+        /// <param name="settings">The Calinga service settings.</param>
+        /// <param name="logger">The logger instance.</param>
         public CalingaService(CalingaServiceSettings settings, ILogger logger)
             : this(
                 new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
@@ -48,6 +69,11 @@ namespace Calinga.NET
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with a custom HTTP client.
+        /// </summary>
+        /// <param name="settings">The Calinga service settings.</param>
+        /// <param name="httpClient">The HTTP client instance.</param>
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient)
             : this(
                 new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
@@ -56,6 +82,12 @@ namespace Calinga.NET
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with a custom HTTP client and logger.
+        /// </summary>
+        /// <param name="settings">The Calinga service settings.</param>
+        /// <param name="httpClient">The HTTP client instance.</param>
+        /// <param name="logger">The logger instance.</param>
         public CalingaService(CalingaServiceSettings settings, HttpClient httpClient, ILogger logger)
             : this(
                 new CascadedCachingService(new InMemoryCachingService(new DateTimeService(), settings),
@@ -64,17 +96,32 @@ namespace Calinga.NET
         {
         }
 
-
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with a custom caching service.
+        /// </summary>
+        /// <param name="cachingService">The caching service to use for translations and languages.</param>
+        /// <param name="settings">The Calinga service settings.</param>
         public CalingaService(ICachingService cachingService, CalingaServiceSettings settings)
             : this(cachingService, new ConsumerHttpClient(settings), settings, new DefaultLogger())
         {
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="CalingaService"/> class with a custom caching service and logger.
+        /// </summary>
+        /// <param name="cachingService">The caching service to use for translations and languages.</param>
+        /// <param name="settings">The Calinga service settings.</param>
+        /// <param name="logger">The logger instance.</param>
         public CalingaService(ICachingService cachingService, CalingaServiceSettings settings, ILogger logger)
             : this(cachingService, new ConsumerHttpClient(settings), settings, logger)
         {
         }
 
+        /// <summary>
+        /// Creates a language context for the specified language.
+        /// </summary>
+        /// <param name="language">The language code.</param>
+        /// <returns>A language context for translation operations.</returns>
         public ILanguageContext CreateContext(string language)
         {
             Guard.IsNotNullOrWhiteSpace(language);
@@ -82,6 +129,12 @@ namespace Calinga.NET
             return new LanguageContext(language, this);
         }
 
+        /// <summary>
+        /// Translates a key into the specified language.
+        /// </summary>
+        /// <param name="key">The translation key.</param>
+        /// <param name="language">The language code.</param>
+        /// <returns>The translated string or the key if not found.</returns>
         public async Task<string> TranslateAsync(string key, string language)
         {
             Guard.IsNotNullOrWhiteSpace(language);
@@ -107,73 +160,103 @@ namespace Calinga.NET
             }
         }
 
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
+        /// <summary>
+        /// Gets all translations for the specified language.
+        /// </summary>
+        /// <param name="language">The language code.</param>
+        /// <param name="invalidateCache">If true, bypasses the cache and fetches from the API. Do not use in combination with "UseCacheOnly"</param>
+        /// <returns>A dictionary of translation keys and values.</returns>
+        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, bool invalidateCache = false)
         {
+            Guard.IsNotNullOrWhiteSpace(language);
+        
+            if (invalidateCache && _settings.UseCacheOnly)
+            {
+                throw new ArgumentException("Cannot invalidate cache when global Setting 'UseCacheOnly' is set to true.", nameof(invalidateCache));
+            }
+        
             while (true)
             {
-                Guard.IsNotNullOrWhiteSpace(language);
-
-                IReadOnlyDictionary<string, string>? foundTranslations = null;
-                CacheResponse? cacheResponse = null;
-
-                try
-                {
-                    cacheResponse = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
-                }
-                catch (Exception e)
-                {
-                    _logger.Warn($"Error while fetching translations for language {language} from cache. Trying to fetch from consumer API. Error: {e.Message}");
-                }
-
-                if (cacheResponse is { FoundInCache: true })
-                {
-                    foundTranslations = cacheResponse.Result;
-
-                    _logger.Info($"Translations for language {language} fetched from cache");
-                    
-                    return _settings.IsDevMode ? foundTranslations.ToDictionary(k => k.Key, k => k.Key) : foundTranslations;
-                }
-
-                if (!_settings.UseCacheOnly)
-                {
-                    try
-                    {
-                        foundTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
-
-                        if (foundTranslations != null && foundTranslations.Any())
-                        {
-                            _logger.Info($"Translations for language {language} fetched from consumer API");
-                            
-                            await _cachingService.StoreTranslationsAsync(language, foundTranslations).ConfigureAwait(false);
-                            return _settings.IsDevMode ? foundTranslations.ToDictionary(k => k.Key, k => k.Key) : foundTranslations;
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        _logger.Warn($"Error when fetching translations for language {language} from consumer API: {e.Message}");
-
-                        if (!_settings.FallbackToReferenceLanguage)
-                            throw;
-                    }
-                }
-                
+                var translations = await TryGetFromCache(language, invalidateCache).ConfigureAwait(false);
+                if (translations != null)
+                    return translations;
+        
+                translations = await TryGetFromApi(language).ConfigureAwait(false);
+                if (translations != null)
+                    return translations;
+        
                 var referenceLanguage = await GetReferenceLanguage().ConfigureAwait(false);
-
+        
                 if (!_settings.FallbackToReferenceLanguage || referenceLanguage == language)
+                {
                     throw new TranslationsNotAvailableException(
                         $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
-
+                }
+        
                 _logger.Warn("Translations not found, trying to fetch reference language");
-
                 language = referenceLanguage;
             }
         }
+        
+        private async Task<IReadOnlyDictionary<string, string>?> TryGetFromCache(string language, bool invalidateCache)
+        {
+            if (invalidateCache)
+                return null;
+        
+            try
+            {
+                var cacheResponse = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
+                if (cacheResponse is { FoundInCache: true })
+                {
+                    _logger.Info($"Translations for language {language} fetched from cache");
+                    var result = cacheResponse.Result;
+                    return _settings.IsDevMode ? result.ToDictionary(k => k.Key, k => k.Key) : result;
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Warn($"Error while fetching translations for language {language} from cache. Trying to fetch from consumer API. Error: {e.Message}");
+            }
+            return null;
+        }
+        
+        private async Task<IReadOnlyDictionary<string, string>?> TryGetFromApi(string language)
+        {
+            if (_settings.UseCacheOnly)
+                return null;
+        
+            try
+            {
+                var foundTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
+                if (foundTranslations != null && foundTranslations.Any())
+                {
+                    _logger.Info($"Translations for language {language} fetched from consumer API");
+                    await _cachingService.StoreTranslationsAsync(language, foundTranslations).ConfigureAwait(false);
+                    return _settings.IsDevMode ? foundTranslations.ToDictionary(k => k.Key, k => k.Key) : foundTranslations;
+                }
+            }
+            catch (Exception e)
+            {
+                _logger.Warn($"Error when fetching translations for language {language} from consumer API: {e.Message}");
+                if (!_settings.FallbackToReferenceLanguage)
+                    throw;
+            }
+            return null;
+        }
 
+        /// <summary>
+        /// Gets the list of available languages.
+        /// </summary>
+        /// <returns>A list of language codes.</returns>
         public async Task<IEnumerable<string>> GetLanguagesAsync()
         {
             return (await FetchLanguagesAsync().ConfigureAwait(false)).Select(x => x.Name);
         }
 
+        /// <summary>
+        /// Gets the reference language for the current project.
+        /// </summary>
+        /// <returns>The reference language code.</returns>
         public async Task<string> GetReferenceLanguage()
         {
             if (!string.IsNullOrWhiteSpace(_referenceLanguage))
@@ -192,6 +275,10 @@ namespace Calinga.NET
             return _referenceLanguage;
         }
 
+        /// <summary>
+        /// Clears the translation and language cache.
+        /// </summary>
+        /// <returns>A task representing the asynchronous operation.</returns>
         public Task ClearCache()
         {
             return _cachingService.ClearCache();
@@ -237,3 +324,4 @@ namespace Calinga.NET
         }
     }
 }
+
