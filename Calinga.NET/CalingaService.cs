@@ -166,7 +166,7 @@ namespace Calinga.NET
         /// <param name="language">The language code.</param>
         /// <param name="invalidateCache">If true, bypasses the cache and fetches from the API. Do not use in combination with "UseCacheOnly"</param>
         /// <returns>A dictionary of translation keys and values.</returns>
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, bool invalidateCache = false)
+        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, bool invalidateCache)
         {
             Guard.IsNotNullOrWhiteSpace(language);
         
@@ -196,6 +196,16 @@ namespace Calinga.NET
                 _logger.Warn("Translations not found, trying to fetch reference language");
                 language = referenceLanguage;
             }
+        }
+        
+        /// <summary>
+        /// Gets all translations for the specified language.
+        /// </summary>
+        /// <param name="language">The language code.</param>
+        /// <returns>A dictionary of translation keys and values.</returns>
+        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
+        {
+            return await GetTranslationsAsync(language, false);
         }
         
         private async Task<IReadOnlyDictionary<string, string>?> TryGetFromCache(string language, bool invalidateCache)
@@ -324,4 +334,3 @@ namespace Calinga.NET
         }
     }
 }
-
