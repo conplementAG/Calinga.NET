@@ -15,14 +15,22 @@ namespace Calinga.NET.Caching
 
         public async Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
+            var missedCaches = new List<ICachingService>();
+
             foreach (var cachingService in _cachingServices)
             {
                 var cacheResponse = await cachingService.GetTranslations(language, includeDrafts);
 
                 if (cacheResponse.FoundInCache)
                 {
+                    // Backfill earlier caches that missed
+                    foreach (var missedCache in missedCaches)
+                    {
+                        await missedCache.StoreTranslationsAsync(language, cacheResponse.Result);
+                    }
                     return cacheResponse;
                 }
+                missedCaches.Add(cachingService);
             }
 
             return CacheResponse.Empty;
@@ -30,14 +38,22 @@ namespace Calinga.NET.Caching
 
         public async Task<CachedLanguageListResponse> GetLanguages()
         {
+            var missedCaches = new List<ICachingService>();
+
             foreach (var cachingService in _cachingServices)
             {
                 var cacheResponse = await cachingService.GetLanguages();
 
                 if (cacheResponse.FoundInCache)
                 {
+                    // Backfill earlier caches that missed
+                    foreach (var missedCache in missedCaches)
+                    {
+                        await missedCache.StoreLanguagesAsync(cacheResponse.Result);
+                    }
                     return cacheResponse;
                 }
+                missedCaches.Add(cachingService);
             }
 
             return CachedLanguageListResponse.Empty;
