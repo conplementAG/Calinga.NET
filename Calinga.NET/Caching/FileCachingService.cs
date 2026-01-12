@@ -165,32 +165,41 @@ namespace Calinga.NET.Caching
                 return;
 
             var path = Path.Combine(_filePath, _languagesCacheFile);
-            _fileSystem.CreateDirectory(_filePath);
             var tempFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.json.temp");
 
+            await _directoryLock.WaitAsync();
             try
             {
-                await _fileSystem.WriteAllTextAsync(tempFilePath, JsonConvert.SerializeObject(languageList)).ConfigureAwait(false);
-                var tempFileContent = await _fileSystem.ReadAllTextAsync(tempFilePath).ConfigureAwait(false);
-                JsonConvert.DeserializeObject<List<Language>>(tempFileContent);
-
-                if (_fileSystem.FileExists(path))
+                _fileSystem.CreateDirectory(_filePath);
+                try
                 {
-                    var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.json.prev");
-                    _fileSystem.ReplaceFile(path, prevFilePath);
-                }
+                    await _fileSystem.WriteAllTextAsync(tempFilePath, JsonConvert.SerializeObject(languageList)).ConfigureAwait(false);
+                    var tempFileContent = await _fileSystem.ReadAllTextAsync(tempFilePath).ConfigureAwait(false);
+                    JsonConvert.DeserializeObject<List<Language>>(tempFileContent);
 
-                _fileSystem.ReplaceFile(tempFilePath, path);
+                    if (_fileSystem.FileExists(path))
+                    {
+                        var prevFilePath = Path.Combine(_filePath, $"{Path.GetFileNameWithoutExtension(path)}.json.prev");
+                        _fileSystem.ReplaceFile(path, prevFilePath);
+                    }
+
+                    _fileSystem.ReplaceFile(tempFilePath, path);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.Warn($"Invalid JSON in temp file: {ex.Message}");
+                }
+                catch (IOException ex)
+                {
+                    _logger.Warn(ex.Message);
+                }
             }
-            catch (JsonException ex)
+            finally
             {
-                _logger.Warn($"Invalid JSON in temp file: {ex.Message}");
-                _fileSystem.DeleteFile(tempFilePath);
-            }
-            catch (IOException ex)
-            {
-                _logger.Warn(ex.Message);
-                _fileSystem.DeleteFile(tempFilePath);
+                _directoryLock.Release();
+
+                if (_fileSystem.FileExists(tempFilePath))
+                    _fileSystem.DeleteFile(tempFilePath);
             }
         }
 
