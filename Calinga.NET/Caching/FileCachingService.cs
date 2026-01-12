@@ -78,7 +78,6 @@ namespace Calinga.NET.Caching
                 throw new TranslationsNotAvailableException(message, ex);
             }
 
-            return CachedLanguageListResponse.Empty;
         }
 
         /// <summary>
