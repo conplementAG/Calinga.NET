@@ -6,8 +6,19 @@
         <Nullable>enable</Nullable>
         <PackageId>Calinga.NET</PackageId>
         <Description>Library to integrate Calinga in .NET projects</Description>
-        <Version>2.1.3</Version>
-        <PackageReleaseNotes>Restored binary compatibility by re-adding the original GetTranslationsAsync method signature. Existing integrations now work without changes.</PackageReleaseNotes>
+        <Version>2.1.4</Version>
+        <PackageReleaseNotes>
+## Bug Fixes
+- Fixed cache backfill: In-memory cache is now repopulated when data is retrieved from file cache after expiration
+- Fixed thread safety in InMemoryCachingService: Now uses ConcurrentDictionary and proper locking for multi-threaded environments
+- Fixed missing locking in FileCachingService.StoreLanguagesAsync: Concurrent writes no longer corrupt the languages cache file
+- Fixed file sharing: ReadAllTextAsync now allows concurrent reads (FileShare.Read)
+- Fixed ClearCache: Now properly clears both translations and languages from in-memory cache
+
+## Improvements
+- Resolved all nullable reference type warnings (CS8618)
+- Added comprehensive thread-safety tests for caching services
+        </PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>

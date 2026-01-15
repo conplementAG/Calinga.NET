@@ -21,7 +21,7 @@ namespace Calinga.NET.Infrastructure
 
         public async Task<string> ReadAllTextAsync(string path)
         {
-            using (var tempFileStream = new FileStream(path, FileMode.Open, FileAccess.Read))
+            using (var tempFileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var tempStreamReader = new StreamReader(tempFileStream, Encoding.UTF8))
             {
                 return await tempStreamReader.ReadToEndAsync().ConfigureAwait(false);

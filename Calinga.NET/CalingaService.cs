@@ -15,7 +15,7 @@ namespace Calinga.NET
         private readonly IConsumerHttpClient _consumerHttpClient;
         private readonly ILogger _logger;
         private readonly CalingaServiceSettings _settings;
-        private string _referenceLanguage;
+        private string? _referenceLanguage;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CalingaService"/> class with all dependencies.
@@ -270,7 +270,7 @@ namespace Calinga.NET
         public async Task<string> GetReferenceLanguage()
         {
             if (!string.IsNullOrWhiteSpace(_referenceLanguage))
-                return _referenceLanguage;
+                return _referenceLanguage!;
 
             var languages = (await FetchLanguagesAsync().ConfigureAwait(false))
                 .ToArray();

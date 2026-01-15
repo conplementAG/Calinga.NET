@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
+using FluentAssertions;
 using Moq;
 using Newtonsoft.Json;
 
@@ -341,6 +343,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).Throws<JsonException>();
+            _fileSystem.Setup(fs => fs.FileExists(tempFilePath)).Returns(true);
 
             // Act
             await _service.StoreLanguagesAsync(languages);
@@ -557,5 +560,142 @@ namespace Calinga.NET.Tests
             _logger.Verify(l => l.Warn(It.IsAny<string>()), Times.AtLeastOnce);
             _fileSystem.Verify(fs => fs.DeleteFile(tempFilePath), Times.Once);
         }
+
+        #region Concurrent Access Tests
+
+        [TestMethod]
+        public async Task StoreLanguagesAsync_ShouldNotThrow_WhenCalledConcurrently()
+        {
+            // Arrange - Use real file system for concurrent access test
+            var tempDir = Path.Combine(Path.GetTempPath(), $"CalingaTest_{Guid.NewGuid()}");
+            var settings = new CalingaServiceSettings
+            {
+                DoNotWriteCacheFiles = false,
+                CacheDirectory = tempDir,
+                Organization = "org",
+                Team = "team",
+                Project = "project"
+            };
+            var logger = new Mock<ILogger>();
+            var service = new FileCachingService(settings, logger.Object);
+            var languages = new List<Language>
+            {
+                new Language { Name = "en", IsReference = true },
+                new Language { Name = "de", IsReference = false }
+            };
+
+            try
+            {
+                // Act - Concurrent calls
+                var tasks = Enumerable.Range(0, 50)
+                    .Select(_ => Task.Run(() => service.StoreLanguagesAsync(languages)))
+                    .ToList();
+
+                Func<Task> act = async () => await Task.WhenAll(tasks);
+
+                // Assert - Should not throw
+                await act.Should().NotThrowAsync("concurrent StoreLanguagesAsync calls should not throw");
+
+                // Verify file was written correctly
+                var result = await service.GetLanguages();
+                result.FoundInCache.Should().BeTrue();
+                result.Result.Count.Should().Be(2);
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
+        }
+
+        [TestMethod]
+        public async Task StoreTranslationsAsync_ShouldNotThrow_WhenCalledConcurrently()
+        {
+            // Arrange - Use real file system for concurrent access test
+            var tempDir = Path.Combine(Path.GetTempPath(), $"CalingaTest_{Guid.NewGuid()}");
+            var settings = new CalingaServiceSettings
+            {
+                DoNotWriteCacheFiles = false,
+                CacheDirectory = tempDir,
+                Organization = "org",
+                Team = "team",
+                Project = "project"
+            };
+            var logger = new Mock<ILogger>();
+            var service = new FileCachingService(settings, logger.Object);
+            var translations = new Dictionary<string, string>
+            {
+                { "key1", "value1" },
+                { "key2", "value2" }
+            };
+
+            try
+            {
+                // Act - Concurrent calls for same language
+                var tasks = Enumerable.Range(0, 50)
+                    .Select(_ => Task.Run(() => service.StoreTranslationsAsync("de", translations)))
+                    .ToList();
+
+                Func<Task> act = async () => await Task.WhenAll(tasks);
+
+                // Assert - Should not throw
+                await act.Should().NotThrowAsync("concurrent StoreTranslationsAsync calls should not throw");
+
+                // Verify file was written correctly
+                var result = await service.GetTranslations("de", false);
+                result.FoundInCache.Should().BeTrue();
+                result.Result.Count.Should().Be(2);
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
+        }
+
+        [TestMethod]
+        public async Task StoreLanguagesAsync_AndStoreTranslationsAsync_ShouldNotThrow_WhenCalledConcurrently()
+        {
+            // Arrange - Use real file system for concurrent access test
+            var tempDir = Path.Combine(Path.GetTempPath(), $"CalingaTest_{Guid.NewGuid()}");
+            var settings = new CalingaServiceSettings
+            {
+                DoNotWriteCacheFiles = false,
+                CacheDirectory = tempDir,
+                Organization = "org",
+                Team = "team",
+                Project = "project"
+            };
+            var logger = new Mock<ILogger>();
+            var service = new FileCachingService(settings, logger.Object);
+            var languages = new List<Language> { new Language { Name = "en", IsReference = true } };
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+
+            try
+            {
+                // Act - Mix of concurrent language and translation stores
+                var tasks = new List<Task>();
+                for (int i = 0; i < 25; i++)
+                {
+                    tasks.Add(Task.Run(() => service.StoreLanguagesAsync(languages)));
+                    tasks.Add(Task.Run(() => service.StoreTranslationsAsync("de", translations)));
+                }
+
+                Func<Task> act = async () => await Task.WhenAll(tasks);
+
+                // Assert - Should not throw
+                await act.Should().NotThrowAsync("concurrent mixed operations should not throw");
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
+        }
+
+        #endregion
     }
 }

@@ -2,22 +2,22 @@
 {
     public class CalingaServiceSettings
     {
-        public string Organization { get; set; }
+        public string Organization { get; set; } = string.Empty;
 
-        public string Team { get; set; }
+        public string Team { get; set; } = string.Empty;
 
-        public string Project { get; set; }
+        public string Project { get; set; } = string.Empty;
 
-        public string ApiToken { get; set; }
+        public string ApiToken { get; set; } = string.Empty;
 
         public bool IncludeDrafts { get; set; }
 
         public bool IsDevMode { get; set; }
-        
+
         /// <summary>
         /// Gets or sets the cache file system directory. Setting only required for default caching
         /// </summary>
-        public string CacheDirectory { get; set; }
+        public string CacheDirectory { get; set; } = string.Empty;
 
         public string ConsumerApiBaseUrl { get; set; } = "https://api.calinga.io/v3";
 
