@@ -523,5 +523,199 @@ namespace Calinga.NET.Tests
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
             _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
         }
+
+        #region Keyed GetTranslationsAsync
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_WarmCache_StillPostsToServer()
+        {
+            // Arrange — warm cache must not rescue the call; keyed requests always go to the server.
+            var serverSubset = new Dictionary<string, string> { { TestData.Key_1, "server value for key 1" } };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1 });
+
+            // Assert
+            result.Should().BeEquivalentTo(serverSubset);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()), Times.Once);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+            _cachingService.Verify(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_MissingFromServer_Omitted()
+        {
+            // Arrange — server omits Key_2 from its response; client surfaces that as a missing entry.
+            var serverSubset = new Dictionary<string, string>
+            {
+                { TestData.Key_1, "from server 1" }
+                // Key_2 intentionally omitted.
+            };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1, TestData.Key_2 });
+
+            // Assert
+            result.Should().HaveCount(1);
+            result.Should().ContainKey(TestData.Key_1);
+            result.Should().NotContainKey(TestData.Key_2);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_ColdCache_CallsKeyedHttp_NotStored()
+        {
+            // Arrange
+            var serverSubset = new Dictionary<string, string> { { TestData.Key_1, "server value for key 1" } };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1 });
+
+            // Assert
+            result.Should().BeEquivalentTo(serverSubset);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()), Times.Once);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+            _cachingService.Verify(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_ColdCache_ReturnsServerSubset()
+        {
+            // Arrange
+            var serverSubset = new Dictionary<string, string>
+            {
+                { TestData.Key_1, "from server 1" }
+            };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1, TestData.Key_2 });
+
+            // Assert
+            result.Should().HaveCount(1);
+            result.Should().ContainKey(TestData.Key_1);
+            result.Should().NotContainKey(TestData.Key_2);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_UseCacheOnly_ColdCache_ThrowsLanguagesNotAvailable()
+        {
+            // Arrange
+            var settings = CreateSettings();
+            settings.UseCacheOnly = true;
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1 });
+
+            // Assert
+            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetLanguagesAsync(), Times.Never);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_UseCacheOnly_WarmCache_ThrowsLanguagesNotAvailable()
+        {
+            // Arrange — warm cache must not rescue the call under UseCacheOnly; keyed calls never touch the cache.
+            var settings = CreateSettings();
+            settings.UseCacheOnly = true;
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1 });
+
+            // Assert
+            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_NullKeys_ThrowsArgumentNullException()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings, _logger.Object);
+
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, (IEnumerable<string>)null!);
+
+            // Assert
+            await act.Should().ThrowAsync<ArgumentNullException>();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_EmptyKeys_ReturnsEmpty_NoHttp_NoCacheAccess()
+        {
+            // Arrange
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, Array.Empty<string>());
+
+            // Assert
+            result.Should().BeEmpty();
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+            _cachingService.Verify(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_EmptyKeys_UseCacheOnly_ThrowsLanguagesNotAvailable()
+        {
+            // Arrange — UseCacheOnly is incompatible with the keyed overload regardless of whether the key
+            // collection is empty. The UseCacheOnly check runs before the empty-keys short-circuit.
+            var settings = CreateSettings();
+            settings.UseCacheOnly = true;
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, Array.Empty<string>());
+
+            // Assert
+            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_IsDevMode_EchoesKeys()
+        {
+            // Arrange — DevMode echoes the keys returned by the server as their own values.
+            var settings = CreateSettings(isDevMode: true);
+            var serverSubset = new Dictionary<string, string> { { TestData.Key_1, "some translation" } };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1 });
+
+            // Assert
+            result.Should().ContainKey(TestData.Key_1).WhoseValue.Should().Be(TestData.Key_1);
+        }
+
+        #endregion Keyed GetTranslationsAsync
     }
 }

@@ -6,18 +6,14 @@
         <Nullable>enable</Nullable>
         <PackageId>Calinga.NET</PackageId>
         <Description>Library to integrate Calinga in .NET projects</Description>
-        <Version>2.1.4</Version>
+        <Version>2.2.0</Version>
         <PackageReleaseNotes>
-## Bug Fixes
-- Fixed cache backfill: In-memory cache is now repopulated when data is retrieved from file cache after expiration
-- Fixed thread safety in InMemoryCachingService: Now uses ConcurrentDictionary and proper locking for multi-threaded environments
-- Fixed missing locking in FileCachingService.StoreLanguagesAsync: Concurrent writes no longer corrupt the languages cache file
-- Fixed file sharing: ReadAllTextAsync now allows concurrent reads (FileShare.Read)
-- Fixed ClearCache: Now properly clears both translations and languages from in-memory cache
-
-## Improvements
-- Resolved all nullable reference type warnings (CS8618)
-- Added comprehensive thread-safety tests for caching services
+## New Features
+- Added `GetTranslationsAsync(string language, IEnumerable&lt;string&gt; keys)` to fetch a subset of translations for a given language without downloading the full dictionary.
+- Every keyed call issues a POST to the Consumer API (`POST {ConsumerApiBaseUrl}/{org}/{team}/{project}/languages/{language}`) with a JSON body `{ "keyNames": [...] }`. The cache is never consulted and never written for keyed calls, so the result is always server-fresh.
+- Keys absent from the server response are silently omitted from the result.
+- `UseCacheOnly = true` is incompatible with the keyed overload and throws `LanguagesNotAvailableException` for any key collection (including an empty one) — keyed requests always require HTTP and cannot be served from the cache.
+- When `UseCacheOnly` is false, passing an empty key collection returns an empty dictionary immediately (no HTTP call, no cache access).
         </PackageReleaseNotes>
     </PropertyGroup>
 

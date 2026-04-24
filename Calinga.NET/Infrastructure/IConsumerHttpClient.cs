@@ -8,6 +8,8 @@ namespace Calinga.NET.Infrastructure
     {
         Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language);
 
+        Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, IEnumerable<string> keys);
+
         Task<IEnumerable<Language>> GetLanguagesAsync();
     }
 }

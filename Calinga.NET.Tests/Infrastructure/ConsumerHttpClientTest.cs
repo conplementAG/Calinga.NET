@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
+using Calinga.NET.Infrastructure.Exceptions;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json.Linq;
 using RichardSzalay.MockHttp;
 
 namespace Calinga.NET.Tests.Infrastructure
@@ -43,6 +47,123 @@ namespace Calinga.NET.Tests.Infrastructure
                 new Language { Name = "en-GB", IsReference = false },
                 new Language { Name = "en-GB~Intranet", IsReference = false }
             });
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_UsesPost_ToV3LanguagesUrl()
+        {
+            // Arrange
+            var expectedUrl = $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/de";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .Expect(HttpMethod.Post, expectedUrl)
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            mockMessageHandler.VerifyNoOutstandingExpectation();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_SendsJsonBody_WithKeyNames()
+        {
+            // Arrange
+            var expectedUrl = $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/de";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .Expect(HttpMethod.Post, expectedUrl)
+                .With(request =>
+                {
+                    if (request.Content == null) return false;
+                    if (request.Content.Headers.ContentType?.MediaType != "application/json") return false;
+                    var body = request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    var parsed = JObject.Parse(body);
+                    var keyNames = parsed["keyNames"]?.ToObject<List<string>>();
+                    return keyNames != null && keyNames.SequenceEqual(new[] { "k1", "k2" });
+                })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", new[] { "k1", "k2" }).ConfigureAwait(false);
+
+            // Assert
+            mockMessageHandler.VerifyNoOutstandingExpectation();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_IncludeDrafts_AddsQueryString()
+        {
+            // Arrange
+            var settings = CreateSettings();
+            settings.IncludeDrafts = true;
+            var expectedUrl =
+                $"{settings.ConsumerApiBaseUrl}/{settings.Organization}/{settings.Team}/{settings.Project}/languages/de?includeDrafts=True";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .Expect(HttpMethod.Post, expectedUrl)
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            mockMessageHandler.VerifyNoOutstandingExpectation();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_On404_ThrowsTranslationsNotFound()
+        {
+            // Arrange
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond(HttpStatusCode.NotFound);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<TranslationsNotFoundException>();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_On401_ThrowsAuthorizationFailed()
+        {
+            // Arrange
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond(HttpStatusCode.Unauthorized);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<AuthorizationFailedException>();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_On500_ThrowsTranslationsNotAvailable()
+        {
+            // Arrange
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond(HttpStatusCode.InternalServerError);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<TranslationsNotAvailableException>();
         }
 
         private static CalingaServiceSettings CreateSettings(bool isDevMode = false)

@@ -72,6 +72,36 @@ namespace Calinga.NET.Infrastructure
             return CreateTranslationsDictionary(body);
         }
 
+        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, IEnumerable<string> keys)
+        {
+            var queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
+            var url = Invariant(
+                $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
+
+            var requestBody = JsonConvert.SerializeObject(new { keyNames = keys });
+            using var content = new StringContent(requestBody, System.Text.Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(url, content).ConfigureAwait(false);
+
+            switch (response.StatusCode)
+            {
+                case HttpStatusCode.Unauthorized:
+                    throw new AuthorizationFailedException();
+                case HttpStatusCode.NotFound:
+                    throw new TranslationsNotFoundException(
+                        $"Translations not found for Organization = '{_settings.Organization}', Team = '{_settings.Team}', Project = '{_settings.Project}', Language = '{language}'");
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new TranslationsNotAvailableException("Failed to fetch filtered translations");
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            return CreateTranslationsDictionary(responseBody);
+        }
+
         public async Task<IEnumerable<Language>> GetLanguagesAsync()
         {
             try

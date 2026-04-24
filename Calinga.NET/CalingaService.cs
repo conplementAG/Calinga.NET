@@ -207,7 +207,50 @@ namespace Calinga.NET
         {
             return await GetTranslationsAsync(language, false);
         }
-        
+
+        /// <summary>
+        /// Gets the subset of translations for the specified keys by issuing a POST to the Consumer API.
+        /// The cache is never consulted and never written — every call returns server-fresh data.
+        ///
+        /// The current state of never using the cache and always using server-fresh data is currently in testing and
+        /// can be subject to change.
+        /// 
+        /// Keys absent from the server response are silently omitted.
+        /// </summary>
+        /// <param name="language">The language code.</param>
+        /// <param name="keys">The translation keys to fetch.</param>
+        /// <returns>A dictionary containing only the requested keys that were found on the server.</returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="keys"/> is null.</exception>
+        /// <exception cref="LanguagesNotAvailableException">
+        /// Thrown when <see cref="CalingaServiceSettings.UseCacheOnly"/> is true. Keyed calls always
+        /// require HTTP; they cannot be served from the cache, so this setting is incompatible with
+        /// the keyed overload regardless of whether the key collection is empty or not.
+        /// </exception>
+        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, IEnumerable<string> keys)
+        {
+            Guard.IsNotNullOrWhiteSpace(language);
+            if (keys == null) throw new ArgumentNullException(nameof(keys));
+
+            if (_settings.UseCacheOnly)
+            {
+                throw new LanguagesNotAvailableException(
+                    $"Keyed translations are not served from the cache; cannot be fetched while UseCacheOnly is true. Path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
+            }
+
+            var keySet = new HashSet<string>(keys, StringComparer.Ordinal);
+
+            if (keySet.Count == 0)
+            {
+                return new Dictionary<string, string>();
+            }
+
+            _logger.Info($"Fetching filtered translations for language {language} ({keySet.Count} key(s)) from consumer API");
+            var subset = await _consumerHttpClient.GetTranslationsAsync(language, keySet).ConfigureAwait(false);
+            return _settings.IsDevMode
+                ? subset.ToDictionary(k => k.Key, k => k.Key)
+                : subset;
+        }
+
         private async Task<IReadOnlyDictionary<string, string>?> TryGetFromCache(string language, bool invalidateCache)
         {
             if (invalidateCache)
