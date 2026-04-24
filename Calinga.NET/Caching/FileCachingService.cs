@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
-using Newtonsoft.Json;
+using System.Text.Json;
 using static System.FormattableString;
 
 namespace Calinga.NET.Caching
@@ -41,7 +41,7 @@ namespace Calinga.NET.Caching
                 var fileContent = await _fileSystem.ReadAllTextAsync(path).ConfigureAwait(false);
                 var dict = string.IsNullOrWhiteSpace(fileContent)
                     ? new Dictionary<string, string>()
-                    : JsonConvert.DeserializeObject<Dictionary<string, string>>(fileContent) ?? new Dictionary<string, string>();
+                    : JsonSerializer.Deserialize<Dictionary<string, string>>(fileContent) ?? new Dictionary<string, string>();
                 
                 return new CacheResponse(dict, true);
             }
@@ -66,7 +66,7 @@ namespace Calinga.NET.Caching
                 var fileContent = await _fileSystem.ReadAllTextAsync(path).ConfigureAwait(false);
                 var list = string.IsNullOrWhiteSpace(fileContent)
                     ? new List<Language>()
-                    : JsonConvert.DeserializeObject<List<Language>>(fileContent) ?? new List<Language>();
+                    : JsonSerializer.Deserialize<List<Language>>(fileContent) ?? new List<Language>();
                 
                 return new CachedLanguageListResponse(list, true);
             }
@@ -123,9 +123,9 @@ namespace Calinga.NET.Caching
                 fileLockAcquired = true;
                 try
                 {
-                    await _fileSystem.WriteAllTextAsync(tempFilePath, JsonConvert.SerializeObject(translations)).ConfigureAwait(false);
+                    await _fileSystem.WriteAllTextAsync(tempFilePath, JsonSerializer.Serialize(translations)).ConfigureAwait(false);
                     var tempFileContent = await _fileSystem.ReadAllTextAsync(tempFilePath).ConfigureAwait(false);
-                    JsonConvert.DeserializeObject<Dictionary<string, string>>(tempFileContent);
+                    JsonSerializer.Deserialize<Dictionary<string, string>>(tempFileContent);
 
                     if (_fileSystem.FileExists(path))
                     {
@@ -172,9 +172,9 @@ namespace Calinga.NET.Caching
                 _fileSystem.CreateDirectory(_filePath);
                 try
                 {
-                    await _fileSystem.WriteAllTextAsync(tempFilePath, JsonConvert.SerializeObject(languageList)).ConfigureAwait(false);
+                    await _fileSystem.WriteAllTextAsync(tempFilePath, JsonSerializer.Serialize(languageList)).ConfigureAwait(false);
                     var tempFileContent = await _fileSystem.ReadAllTextAsync(tempFilePath).ConfigureAwait(false);
-                    JsonConvert.DeserializeObject<List<Language>>(tempFileContent);
+                    JsonSerializer.Deserialize<List<Language>>(tempFileContent);
 
                     if (_fileSystem.FileExists(path))
                     {

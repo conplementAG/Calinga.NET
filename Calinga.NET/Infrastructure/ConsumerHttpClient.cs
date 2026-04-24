@@ -6,7 +6,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure.Exceptions;
-using Newtonsoft.Json;
+using System.Text.Json;
 using static System.FormattableString;
 
 namespace Calinga.NET.Infrastructure
@@ -78,7 +78,7 @@ namespace Calinga.NET.Infrastructure
             var url = Invariant(
                 $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
 
-            var requestBody = JsonConvert.SerializeObject(new { keyNames = keys });
+            var requestBody = JsonSerializer.Serialize(new { keyNames = keys });
             using var content = new StringContent(requestBody, System.Text.Encoding.UTF8, "application/json");
 
             var response = await _httpClient.PostAsync(url, content).ConfigureAwait(false);
@@ -129,23 +129,22 @@ namespace Calinga.NET.Infrastructure
 
         private static Dictionary<string, string> CreateTranslationsDictionary(string json)
         {
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json)!;
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(json)!;
         }
 
         private static IEnumerable<Language> DeserializeLanguages(string json)
         {
-            return JsonConvert.DeserializeObject<List<Dictionary<string, string>>>(json)!
-                .Select(l =>
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.EnumerateArray().Select(l =>
+            {
+                var languageTag = l.GetProperty("tag").GetString();
+                var languageName = l.GetProperty("name").GetString();
+                return new Language
                 {
-                    var languageTag = l["tag"];
-                    var isRefernece = l["isReference"];
-
-                    return new Language
-                    {
-                        Name = string.IsNullOrEmpty(languageTag) ? l["name"] : $"{l["name"]}~{languageTag}",
-                        IsReference = Convert.ToBoolean(isRefernece)
-                    };
-                });
+                    Name = string.IsNullOrEmpty(languageTag) ? languageName! : $"{languageName}~{languageTag}",
+                    IsReference = l.GetProperty("isReference").GetBoolean()
+                };
+            }).ToList();
         }
 
         private void EnsureApiTokenHeaderIsSet()
