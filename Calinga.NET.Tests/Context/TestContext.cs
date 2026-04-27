@@ -9,7 +9,7 @@ using System.Web;
 
 using Moq;
 using Moq.Protected;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
@@ -120,7 +120,7 @@ namespace Calinga.NET.Tests.Context
                             return new HttpResponseMessage
                             {
                                 StatusCode = HttpStatusCode.OK,
-                                Content = new StringContent(JsonConvert.SerializeObject(translations))
+                                Content = new StringContent(JsonSerializer.Serialize(translations))
                             };
                         }
                         catch (Exception)

@@ -9,7 +9,7 @@ using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 using RichardSzalay.MockHttp;
 
 namespace Calinga.NET.Tests.Infrastructure
@@ -33,7 +33,7 @@ namespace Calinga.NET.Tests.Infrastructure
             mockMessageHandler
                 .When($"https://api.calinga.io/v3/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages*")
                 .Respond("application/json",
-                    "[ { 'name': 'en', 'tag': '', 'isReference': true }, { 'name': 'en-GB', 'tag': '', 'isReference': false }, { 'name': 'en-GB', 'tag': 'Intranet', 'isReference': false } ]");
+                    @"[ { ""name"": ""en"", ""tag"": """", ""isReference"": true }, { ""name"": ""en-GB"", ""tag"": """", ""isReference"": false }, { ""name"": ""en-GB"", ""tag"": ""Intranet"", ""isReference"": false } ]");
 
             var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
 
@@ -80,9 +80,10 @@ namespace Calinga.NET.Tests.Infrastructure
                     if (request.Content == null) return false;
                     if (request.Content.Headers.ContentType?.MediaType != "application/json") return false;
                     var body = request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                    var parsed = JObject.Parse(body);
-                    var keyNames = parsed["keyNames"]?.ToObject<List<string>>();
-                    return keyNames != null && keyNames.SequenceEqual(new[] { "k1", "k2" });
+                    using var parsed = JsonDocument.Parse(body);
+                    if (!parsed.RootElement.TryGetProperty("keyNames", out var keyNamesElement)) return false;
+                    var keyNames = keyNamesElement.EnumerateArray().Select(e => e.GetString()).ToList();
+                    return keyNames.SequenceEqual(new[] { "k1", "k2" });
                 })
                 .Respond("application/json", "{}");
             var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));

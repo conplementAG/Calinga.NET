@@ -10,7 +10,7 @@ using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
 using FluentAssertions;
 using Moq;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace Calinga.NET.Tests
 {
@@ -48,7 +48,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -105,7 +105,7 @@ namespace Calinga.NET.Tests
             var prevFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.prev");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -128,7 +128,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -165,7 +165,7 @@ namespace Calinga.NET.Tests
             var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
             var translations = new Dictionary<string, string> { { "key1", "value1" } };
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonSerializer.Serialize(translations));
 
             // Act
             var result = await _service.GetTranslations(language, false);
@@ -210,7 +210,7 @@ namespace Calinga.NET.Tests
             var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "Languages.json");
             var languages = new List<Language> { new Language { Name = "en" } };
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonConvert.SerializeObject(languages));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonSerializer.Serialize(languages));
 
             // Act
             var result = await _service.GetLanguages();
@@ -272,7 +272,7 @@ namespace Calinga.NET.Tests
                 "Languages.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(languages));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(languages));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -363,7 +363,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync("{invalid json}");
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<Newtonsoft.Json.JsonReaderException>(() => _service.GetTranslations(language, false));
+            await Assert.ThrowsExceptionAsync<JsonException>(() => _service.GetTranslations(language, false));
         }
 
         [TestMethod]
@@ -375,7 +375,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync("{invalid json}");
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<Newtonsoft.Json.JsonReaderException>(() => _service.GetLanguages());
+            await Assert.ThrowsExceptionAsync<JsonException>(() => _service.GetLanguages());
         }
 
         [TestMethod]
@@ -432,7 +432,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -526,7 +526,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null)).Throws<IOException>();
             _fileSystem.Setup(fs => fs.FileExists(tempFilePath)).Returns(true);
@@ -548,7 +548,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "Languages.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(languages));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(languages));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null)).Throws<IOException>();
             _fileSystem.Setup(fs => fs.FileExists(tempFilePath)).Returns(true);
