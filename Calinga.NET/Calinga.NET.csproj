@@ -16,10 +16,17 @@
         <PackageReleaseNotes>
 ## New Features
 - Added `GetTranslationsAsync(string language, IEnumerable&lt;string&gt; keys)` to fetch a subset of translations for a given language without downloading the full dictionary.
-- Every keyed call issues a POST to the Consumer API (`POST {ConsumerApiBaseUrl}/{org}/{team}/{project}/languages/{language}`) with a JSON body `{ "keyNames": [...] }`. The cache is never consulted and never written for keyed calls, so the result is always server-fresh.
+- Every call requesting a specific list of keys issues a POST to the Consumer API (`POST {ConsumerApiBaseUrl}/{org}/{team}/{project}/languages/{language}`) with a JSON body `{ "keyNames": [...] }`. The cache is never consulted and never written for keyed calls, so the result is always server-fresh.
 - Keys absent from the server response are silently omitted from the result in normal mode. In DevMode (`IsDevMode = true`), the keyed overload validates the server response and throws `KeysNotFoundException` if any requested key is missing, with the missing keys listed in both the message and the `MissingKeys` property.
 - `UseCacheOnly = true` is incompatible with the keyed overload and throws `InvalidOperationException` for any key collection (including an empty one) — keyed requests always require HTTP and cannot be served from the cache.
 - When `UseCacheOnly` is false, passing an empty key collection returns an empty dictionary immediately (no HTTP call, no cache access).
+- When in "DevMode" and requesting a list of keys, a KeysNotFoundException gets thrown when keys were missing from the server response
+            
+## API contract decisions
+- Filtering for a list of keys while having useCacheOnly enabled throws an InvalidOperationException
+            
+## Documentation 
+- Package now ships its README on the NuGet listing and links to the GitHub source repository.
         </PackageReleaseNotes>
     </PropertyGroup>
 
