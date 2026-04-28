@@ -26,7 +26,11 @@
 - Filtering for a list of keys while having useCacheOnly enabled throws an InvalidOperationException
             
 ## Documentation 
-- Package now ships its README on the NuGet listing and links to the GitHub source repository.
+- Package now ships its README on the NuGet listing and links to the GitHub source repository
+            
+            ## Further Changes
+            - The dependency on Newtonsoft was removed and replaced by System.Text.Json
+            - More detailed exception handling
         </PackageReleaseNotes>
     </PropertyGroup>
 
