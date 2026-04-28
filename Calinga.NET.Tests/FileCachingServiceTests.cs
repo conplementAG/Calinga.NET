@@ -697,5 +697,55 @@ namespace Calinga.NET.Tests
         }
 
         #endregion
+
+        #region Newtonsoft → System.Text.Json compatibility
+
+        [TestMethod]
+        public async Task GetTranslations_ReadsNewtonsoftEraFile_Successfully()
+        {
+            // Arrange — exact byte shape Newtonsoft 13 produced for Dictionary<string, string>:
+            // compact, double-quoted keys/values, no whitespace, no BOM. Pinning a literal here
+            // (instead of round-tripping through System.Text.Json) is the whole point — proves
+            // existing on-disk caches written by 2.1.x are still readable after the JSON-library
+            // swap in 2.2.0.
+            const string newtonsoftEraJson = "{\"key1\":\"value1\",\"key2\":\"value2\"}";
+            var language = "EN";
+            var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(newtonsoftEraJson);
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundInCache.Should().BeTrue();
+            result.Result.Should().HaveCount(2);
+            result.Result["key1"].Should().Be("value1");
+            result.Result["key2"].Should().Be("value2");
+        }
+
+        [TestMethod]
+        public async Task GetLanguages_ReadsNewtonsoftEraFile_Successfully()
+        {
+            // Arrange — Newtonsoft 13 default for List<Language>: PascalCase property names,
+            // no whitespace, double-quoted strings, JSON booleans lowercase. Same rationale as
+            // the translations test — pin a literal so any future serializer-options change
+            // (e.g. JsonNamingPolicy.CamelCase) surfaces as a failing test, not a broken cache.
+            const string newtonsoftEraJson = "[{\"Name\":\"en\",\"IsReference\":true},{\"Name\":\"de\",\"IsReference\":false}]";
+            var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "Languages.json");
+            _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(newtonsoftEraJson);
+
+            // Act
+            var result = await _service.GetLanguages();
+
+            // Assert
+            result.FoundInCache.Should().BeTrue();
+            result.Result.Should().HaveCount(2);
+            result.Result.Should().ContainSingle(l => l.Name == "en" && l.IsReference);
+            result.Result.Should().ContainSingle(l => l.Name == "de" && !l.IsReference);
+        }
+
+        #endregion
     }
 }
