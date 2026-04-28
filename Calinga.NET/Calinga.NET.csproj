@@ -5,7 +5,13 @@
         <LangVersion>8.0</LangVersion>
         <Nullable>enable</Nullable>
         <PackageId>Calinga.NET</PackageId>
+        <Authors>conplement AG</Authors>
         <Description>Library to integrate Calinga in .NET projects</Description>
+        <PackageTags>calinga;localization;translations;i18n</PackageTags>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageProjectUrl>https://github.com/conplementAG/Calinga.NET</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/conplementAG/Calinga.NET.git</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
         <Version>2.2.0</Version>
         <PackageReleaseNotes>
 ## New Features
@@ -25,6 +31,10 @@
 
     <ItemGroup>
         <PackageReference Update="NETStandard.Library" Version="2.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 
 </Project>
