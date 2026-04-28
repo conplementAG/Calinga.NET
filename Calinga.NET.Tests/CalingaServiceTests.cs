@@ -723,6 +723,83 @@ namespace Calinga.NET.Tests
             result.Should().ContainKey(TestData.Key_1).WhoseValue.Should().Be(TestData.Key_1);
         }
 
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_IsDevMode_AllKeysPresent_EchoesAll()
+        {
+            // Arrange — every requested key is present in the server response.
+            // DevMode echoes each key as its own value; no exception.
+            var settings = CreateSettings(isDevMode: true);
+            var serverSubset = new Dictionary<string, string>
+            {
+                { TestData.Key_1, "translation 1" },
+                { TestData.Key_2, "translation 2" }
+            };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1, TestData.Key_2 });
+
+            // Assert
+            result.Should().HaveCount(2);
+            result.Should().ContainKey(TestData.Key_1).WhoseValue.Should().Be(TestData.Key_1);
+            result.Should().ContainKey(TestData.Key_2).WhoseValue.Should().Be(TestData.Key_2);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_IsDevMode_ServerOmitsKey_ThrowsKeysNotFound()
+        {
+            // Arrange — caller asks for two keys; server returns only one.
+            // DevMode must throw KeysNotFoundException listing the missing key(s)
+            // so typos and unknown keys surface at integration time rather than as
+            // silent omissions at runtime.
+            var settings = CreateSettings(isDevMode: true);
+            var serverSubset = new Dictionary<string, string>
+            {
+                { TestData.Key_1, "some translation" }
+                // Key_2 intentionally omitted by the server.
+            };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1, TestData.Key_2 });
+
+            // Assert
+            var assertion = await act.Should().ThrowAsync<KeysNotFoundException>();
+            assertion.Which.MissingKeys.Should().ContainSingle().Which.Should().Be(TestData.Key_2);
+            assertion.Which.Message.Should().Contain(TestData.Key_2);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_NotDevMode_ServerOmitsKey_StillSilentlyOmits()
+        {
+            // Arrange — outside DevMode, the existing "silently omit" contract stays.
+            // The validation behaviour is DevMode-only.
+            var settings = CreateSettings(isDevMode: false);
+            var serverSubset = new Dictionary<string, string>
+            {
+                { TestData.Key_1, "some translation" }
+                // Key_2 intentionally omitted by the server.
+            };
+            _consumerHttpClient
+                .Setup(x => x.GetTranslationsAsync(TestData.Language_DE, It.IsAny<IEnumerable<string>>()))
+                .ReturnsAsync(serverSubset);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1, TestData.Key_2 });
+
+            // Assert
+            result.Should().HaveCount(1);
+            result.Should().ContainKey(TestData.Key_1);
+            result.Should().NotContainKey(TestData.Key_2);
+        }
+
         #endregion Keyed GetTranslationsAsync
     }
 }

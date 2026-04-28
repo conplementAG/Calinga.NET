@@ -12,6 +12,15 @@
 
         public bool IncludeDrafts { get; set; }
 
+        /// <summary>
+        /// When true, translation lookups still hit the server (or cache) to determine which keys exist,
+        /// but the returned values are the keys themselves rather than the translations. Use during UI
+        /// development to verify which translation key renders where without depending on translated content.
+        /// For the keyed <c>GetTranslationsAsync</c> overload, the server response is also validated:
+        /// if any requested key is missing on the server, a <see cref="Exceptions.KeysNotFoundException"/>
+        /// is thrown listing the missing keys, so typos and unknown keys surface at integration time
+        /// rather than as silent omissions at runtime.
+        /// </summary>
         public bool IsDevMode { get; set; }
 
         /// <summary>

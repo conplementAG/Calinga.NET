@@ -214,8 +214,11 @@ namespace Calinga.NET
         ///
         /// The current state of never using the cache and always using server-fresh data is currently in testing and
         /// can be subject to change.
-        /// 
-        /// Keys absent from the server response are silently omitted.
+        ///
+        /// In normal mode, keys absent from the server response are silently omitted.
+        /// In <see cref="CalingaServiceSettings.IsDevMode"/>, the server response is validated:
+        /// if any requested key is missing, a <see cref="KeysNotFoundException"/> is thrown so
+        /// developers see typos and unknown keys at integration time rather than at runtime.
         /// </summary>
         /// <param name="language">The language code.</param>
         /// <param name="keys">The translation keys to fetch.</param>
@@ -225,6 +228,11 @@ namespace Calinga.NET
         /// Thrown when <see cref="CalingaServiceSettings.UseCacheOnly"/> is true. Keyed calls always
         /// require HTTP; they cannot be served from the cache, so this setting is incompatible with
         /// the keyed overload regardless of whether the key collection is empty or not.
+        /// </exception>
+        /// <exception cref="KeysNotFoundException">
+        /// Thrown when <see cref="CalingaServiceSettings.IsDevMode"/> is true and the server response
+        /// does not include every requested key. The exception's <see cref="KeysNotFoundException.MissingKeys"/>
+        /// property exposes the missing keys for diagnostic purposes.
         /// </exception>
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, IEnumerable<string> keys)
         {
@@ -246,9 +254,20 @@ namespace Calinga.NET
 
             _logger.Info($"Fetching filtered translations for language {language} ({keySet.Count} key(s)) from consumer API");
             var subset = await _consumerHttpClient.GetTranslationsAsync(language, keySet).ConfigureAwait(false);
-            return _settings.IsDevMode
-                ? subset.ToDictionary(k => k.Key, k => k.Key)
-                : subset;
+
+            if (_settings.IsDevMode)
+            {
+                var missingKeys = keySet.Where(k => !subset.ContainsKey(k)).ToList();
+                if (missingKeys.Count > 0)
+                {
+                    throw new KeysNotFoundException(
+                        missingKeys,
+                        $"DevMode: {missingKeys.Count} of {keySet.Count} requested key(s) not found on server. Missing: {string.Join(", ", missingKeys)}. Path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
+                }
+                return subset.ToDictionary(k => k.Key, k => k.Key);
+            }
+
+            return subset;
         }
 
         private async Task<IReadOnlyDictionary<string, string>?> TryGetFromCache(string language, bool invalidateCache)

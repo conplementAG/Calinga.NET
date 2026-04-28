@@ -36,7 +36,7 @@ Package to connect and use the calinga service in .NET applications
 - `Team`: The name of your team.
 - `Project`: The name of your project.
 - `ApiToken`: The API token used for authentication.
-- `IsDevMode`: A boolean indicating if the service is in development mode. When `true`, it returns keys instead of actual translations.
+- `IsDevMode`: When `true`, the service returns each translation key as its own value instead of the translated text. Use during UI development to verify which translation key renders where. The keyed `GetTranslationsAsync(language, keys)` overload additionally validates the server response: if any requested key is missing on the server, the call throws `KeysNotFoundException` listing the missing keys, so typos and unknown keys surface at integration time rather than as silent omissions at runtime.
 - `IncludeDrafts`: A boolean indicating if draft translations should be included.
 - `CacheDirectory`: The directory where cache files are stored. Only needed for the default caching implementation.
 - `MemoryCacheExpirationIntervalInSeconds`: The expiration interval for the in-memory cache in seconds. Only needed for the default caching implementation.
@@ -94,7 +94,8 @@ var translations = await calingaService.GetTranslationsAsync("de", keys);
 ```
 
 - Every keyed call **POSTs** to the Consumer API with a JSON body `{ "keyNames": [...] }` and returns only the translations the server responded with. The cache is never consulted and never written for keyed calls, so the result is always server-fresh.
-- Keys absent from the server response are silently omitted from the result (no exception).
+- In normal mode, keys absent from the server response are silently omitted from the result (no exception).
+- In DevMode (`IsDevMode = true`), the server response is validated: if any requested key is missing, the call throws `KeysNotFoundException`. The exception's `MissingKeys` property exposes the missing keys, and the message lists them too, so devs can fix typos and unknown keys immediately.
 - Passing `keys: null` throws `ArgumentNullException`.
 - `UseCacheOnly = true` is incompatible with the keyed overload — passing any key collection (including an empty one) while `UseCacheOnly` is set throws `InvalidOperationException`, because keyed calls always require HTTP and cannot be served from the cache.
 - When `UseCacheOnly` is false, passing an empty collection returns an empty dictionary immediately — no HTTP call, no cache access.
