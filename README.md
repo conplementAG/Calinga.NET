@@ -96,7 +96,7 @@ var translations = await calingaService.GetTranslationsAsync("de", keys);
 - Every keyed call **POSTs** to the Consumer API with a JSON body `{ "keyNames": [...] }` and returns only the translations the server responded with. The cache is never consulted and never written for keyed calls, so the result is always server-fresh.
 - Keys absent from the server response are silently omitted from the result (no exception).
 - Passing `keys: null` throws `ArgumentNullException`.
-- `UseCacheOnly = true` is incompatible with the keyed overload — passing any key collection (including an empty one) while `UseCacheOnly` is set throws `LanguagesNotAvailableException`, because keyed calls always require HTTP and cannot be served from the cache.
+- `UseCacheOnly = true` is incompatible with the keyed overload — passing any key collection (including an empty one) while `UseCacheOnly` is set throws `InvalidOperationException`, because keyed calls always require HTTP and cannot be served from the cache.
 - When `UseCacheOnly` is false, passing an empty collection returns an empty dictionary immediately — no HTTP call, no cache access.
 
 ### Transport summary
@@ -106,6 +106,6 @@ var translations = await calingaService.GetTranslationsAsync("de", keys);
 | `GetTranslationsAsync(language)` | `GET` | `{ConsumerApiBaseUrl}/{org}/{team}/{project}/languages/{language}` | Yes | Full dictionary stored |
 | `GetTranslationsAsync(language, keys)` with non-empty keys (and `UseCacheOnly = false`) | `POST` | `{ConsumerApiBaseUrl}/{org}/{team}/{project}/languages/{language}` with body `{ "keyNames": [...] }` | No | Not stored |
 | `GetTranslationsAsync(language, keys)` with empty keys (and `UseCacheOnly = false`) | none | — | No | — |
-| `GetTranslationsAsync(language, keys)` with any keys while `UseCacheOnly = true` | — | — | — | Throws `LanguagesNotAvailableException` |
+| `GetTranslationsAsync(language, keys)` with any keys while `UseCacheOnly = true` | — | — | — | Throws `InvalidOperationException` |
 
 Both calls share the existing `ConsumerApiBaseUrl` setting — no additional URL configuration is required.

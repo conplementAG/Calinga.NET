@@ -613,7 +613,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetTranslationsAsync_WithKeyList_UseCacheOnly_ColdCache_ThrowsLanguagesNotAvailable()
+        public async Task GetTranslationsAsync_WithKeyList_UseCacheOnly_ColdCache_ThrowsInvalidOperation()
         {
             // Arrange
             var settings = CreateSettings();
@@ -624,7 +624,7 @@ namespace Calinga.NET.Tests
             Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1 });
 
             // Assert
-            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            await act.Should().ThrowAsync<InvalidOperationException>();
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
             _consumerHttpClient.Verify(x => x.GetLanguagesAsync(), Times.Never);
@@ -632,7 +632,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetTranslationsAsync_WithKeyList_UseCacheOnly_WarmCache_ThrowsLanguagesNotAvailable()
+        public async Task GetTranslationsAsync_WithKeyList_UseCacheOnly_WarmCache_ThrowsInvalidOperation()
         {
             // Arrange — warm cache must not rescue the call under UseCacheOnly; keyed calls never touch the cache.
             var settings = CreateSettings();
@@ -643,7 +643,7 @@ namespace Calinga.NET.Tests
             Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, new[] { TestData.Key_1 });
 
             // Assert
-            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            await act.Should().ThrowAsync<InvalidOperationException>();
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
             _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
@@ -680,7 +680,7 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetTranslationsAsync_WithKeyList_EmptyKeys_UseCacheOnly_ThrowsLanguagesNotAvailable()
+        public async Task GetTranslationsAsync_WithKeyList_EmptyKeys_UseCacheOnly_ThrowsInvalidOperation()
         {
             // Arrange — UseCacheOnly is incompatible with the keyed overload regardless of whether the key
             // collection is empty. The UseCacheOnly check runs before the empty-keys short-circuit.
@@ -692,7 +692,7 @@ namespace Calinga.NET.Tests
             Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, Array.Empty<string>());
 
             // Assert
-            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            await act.Should().ThrowAsync<InvalidOperationException>();
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()), Times.Never);
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
             _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
