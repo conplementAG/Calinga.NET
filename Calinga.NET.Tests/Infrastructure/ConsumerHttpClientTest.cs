@@ -167,6 +167,45 @@ namespace Calinga.NET.Tests.Infrastructure
             await act.Should().ThrowAsync<TranslationsNotAvailableException>();
         }
 
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_OnNullJsonBody_ReturnsEmptyDictionary()
+        {
+            // Arrange — the API responds 200 OK with the literal JSON value "null".
+            // System.Text.Json deserialises that to a CLR null; the client must surface
+            // an empty dictionary instead of letting null propagate to callers.
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond("application/json", "null");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var result = await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Should().BeEmpty();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_OnNullJsonBody_ReturnsEmptyDictionary()
+        {
+            // Arrange — same null-body scenario for the existing GET overload, since both
+            // paths share the CreateTranslationsDictionary helper.
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", "null");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var result = await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Should().BeEmpty();
+        }
+
         private static CalingaServiceSettings CreateSettings(bool isDevMode = false)
         {
             return new CalingaServiceSettings

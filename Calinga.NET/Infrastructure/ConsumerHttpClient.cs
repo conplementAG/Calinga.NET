@@ -129,7 +129,8 @@ namespace Calinga.NET.Infrastructure
 
         private static Dictionary<string, string> CreateTranslationsDictionary(string json)
         {
-            return JsonSerializer.Deserialize<Dictionary<string, string>>(json)!;
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(json)
+                ?? new Dictionary<string, string>();
         }
 
         private static IEnumerable<Language> DeserializeLanguages(string json)
