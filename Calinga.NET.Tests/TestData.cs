@@ -13,7 +13,7 @@ namespace Calinga.NET.Tests
         internal const string Key_1 = "UnitTest_Key1";
         internal const string Key_2 = "UnitTest_Key2";
         internal const string Translation_Key_1 = "translation for key 1";
-        internal const string Translation_Key_2 = "translation for key 1";
+        internal const string Translation_Key_2 = "translation for key 2";
 
         internal static CacheResponse Cache_Translations_De = new CacheResponse(Translations_De, true);
         internal static CacheResponse Cache_Translations_En = new CacheResponse(Translations_En, true);

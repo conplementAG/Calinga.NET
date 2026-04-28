@@ -634,9 +634,16 @@ namespace Calinga.NET.Tests
         [TestMethod]
         public async Task GetTranslationsAsync_WithKeyList_UseCacheOnly_WarmCache_ThrowsInvalidOperation()
         {
-            // Arrange — warm cache must not rescue the call under UseCacheOnly; keyed calls never touch the cache.
+            // Arrange — populate the cache, then call the keyed overload under UseCacheOnly.
+            // The UseCacheOnly check must reject the call before any cache lookup happens,
+            // even if the cache holds the requested key. A future change that consulted the
+            // cache before checking UseCacheOnly would silently make this call succeed —
+            // the warm cache is what makes that regression observable.
             var settings = CreateSettings();
             settings.UseCacheOnly = true;
+            _cachingService
+                .Setup(x => x.GetTranslations(TestData.Language_DE, It.IsAny<bool>()))
+                .ReturnsAsync(TestData.Cache_Translations_De);
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
 
             // Act
