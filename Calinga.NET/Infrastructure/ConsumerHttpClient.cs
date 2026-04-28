@@ -21,7 +21,6 @@ namespace Calinga.NET.Infrastructure
         public ConsumerHttpClient(CalingaServiceSettings settings)
             : this(settings, new HttpClient())
         {
-            _settings = settings;
         }
 
         public ConsumerHttpClient(CalingaServiceSettings settings, HttpClient httpClient)

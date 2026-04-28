@@ -291,7 +291,8 @@ namespace Calinga.NET.Tests
             Func<Task> getReferenceLanguage = async () => await service.GetReferenceLanguage();
 
             // Assert
-            await getReferenceLanguage.Should().ThrowAsync<LanguagesNotAvailableException>();
+            var assertion = await getReferenceLanguage.Should().ThrowAsync<TranslationsNotAvailableException>();
+            assertion.WithInnerException<LanguagesNotAvailableException>();
             _consumerHttpClient.Verify(x => x.GetLanguagesAsync(), Times.Never);
         }
 
@@ -418,16 +419,20 @@ namespace Calinga.NET.Tests
         [TestMethod]
         public async Task GetReferenceLanguage_ShouldThrow_WhenNoReferenceLanguageFound()
         {
-            // Arrange
+            // Arrange — non-empty language list with no reference flag. FetchLanguagesAsync succeeds,
+            // so there is no inner LanguagesNotAvailableException — only the outer translations failure.
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
             _cachingService.Setup(x => x.GetLanguages()).ReturnsAsync(new CachedLanguageListResponse(new List<Language>(), false));
-            _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).ReturnsAsync(new List<Language>());
+            _consumerHttpClient.Setup(x => x.GetLanguagesAsync()).ReturnsAsync(new List<Language>
+            {
+                new Language { Name = TestData.Language_DE, IsReference = false }
+            });
 
             // Act
             Func<Task> getReferenceLanguage = async () => await service.GetReferenceLanguage();
 
             // Assert
-            await getReferenceLanguage.Should().ThrowAsync<LanguagesNotAvailableException>();
+            await getReferenceLanguage.Should().ThrowAsync<TranslationsNotAvailableException>();
         }
         
         [TestMethod]
@@ -447,6 +452,28 @@ namespace Calinga.NET.Tests
             await getTranslations.Should().ThrowAsync<TranslationsNotAvailableException>();
         }
         
+        [TestMethod]
+        public async Task GetTranslationsAsync_ShouldThrowTranslationsNotAvailable_WhenLanguageListUnavailableDuringFallback()
+        {
+            // Arrange — UseCacheOnly with empty caches forces FetchLanguagesAsync to throw
+            // LanguagesNotAvailableException. Callers of GetTranslationsAsync expect a
+            // TranslationsNotAvailableException, with the language failure as the inner cause.
+            var settings = CreateSettings();
+            settings.UseCacheOnly = true;
+            settings.FallbackToReferenceLanguage = true;
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings, _logger.Object);
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, settings.IncludeDrafts))
+                .ReturnsAsync(new CacheResponse(TestData.EmptyTranslations, false));
+            _cachingService.Setup(x => x.GetLanguages()).ReturnsAsync(CachedLanguageListResponse.Empty);
+
+            // Act
+            Func<Task> getTranslations = async () => await service.GetTranslationsAsync(TestData.Language_DE);
+
+            // Assert
+            var assertion = await getTranslations.Should().ThrowAsync<TranslationsNotAvailableException>();
+            assertion.WithInnerException<LanguagesNotAvailableException>();
+        }
+
         [TestMethod]
         public async Task GetTranslationsAsync_ShouldThrow_WhenFallbackToReferenceLanguageIsFalseOrReferenceLanguageIsSame()
         {

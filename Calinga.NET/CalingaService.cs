@@ -184,15 +184,21 @@ namespace Calinga.NET
                 translations = await TryGetFromApi(language).ConfigureAwait(false);
                 if (translations != null)
                     return translations;
-        
-                var referenceLanguage = await GetReferenceLanguage().ConfigureAwait(false);
-        
-                if (!_settings.FallbackToReferenceLanguage || referenceLanguage == language)
+
+                if (!_settings.FallbackToReferenceLanguage)
                 {
                     throw new TranslationsNotAvailableException(
                         $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
                 }
-        
+
+                var referenceLanguage = await GetReferenceLanguage().ConfigureAwait(false);
+
+                if (referenceLanguage == language)
+                {
+                    throw new TranslationsNotAvailableException(
+                        $"Translation not found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}, {language}");
+                }
+
                 _logger.Warn("Translations not found, trying to fetch reference language");
                 language = referenceLanguage;
             }
@@ -329,24 +335,39 @@ namespace Calinga.NET
         /// Gets the reference language for the current project.
         /// </summary>
         /// <returns>The reference language code.</returns>
+        /// <exception cref="TranslationsNotAvailableException">
+        /// Thrown when the reference language cannot be determined — either because the language list is
+        /// unavailable (inner exception is <see cref="LanguagesNotAvailableException"/>) or because the
+        /// list contains no language flagged as reference. Reported as a translations failure because the
+        /// reference language exists to drive translation fallback.
+        /// </exception>
         public async Task<string> GetReferenceLanguage()
         {
             if (!string.IsNullOrWhiteSpace(_referenceLanguage))
                 return _referenceLanguage!;
 
-            var languages = (await FetchLanguagesAsync().ConfigureAwait(false))
-                .ToArray();
+            Language[] languages;
+            try
+            {
+                languages = (await FetchLanguagesAsync().ConfigureAwait(false)).ToArray();
+            }
+            catch (LanguagesNotAvailableException ex)
+            {
+                throw new TranslationsNotAvailableException(
+                    $"Reference language could not be determined, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}", ex);
+            }
 
             if (languages.All(l => !l.IsReference))
             {
-                throw new LanguagesNotAvailableException("Reference language not found");
+                throw new TranslationsNotAvailableException(
+                    $"No reference language found, path: {_settings.Organization}, {_settings.Team}, {_settings.Project}");
             }
 
             _referenceLanguage = languages.Single(l => l.IsReference).Name;
 
             return _referenceLanguage;
         }
-
+        
         /// <summary>
         /// Clears the translation and language cache.
         /// </summary>

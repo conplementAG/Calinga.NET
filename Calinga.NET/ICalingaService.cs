@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Calinga.NET
 {
-    public interface  ICalingaService
+    public interface ICalingaService
     {
         Task<string> TranslateAsync(string key, string language);
 
