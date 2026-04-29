@@ -6,8 +6,7 @@ namespace Calinga.NET
     {
         public static void IsNotNullOrWhiteSpace(string parameter)
         {
-            parameter = parameter.Replace(" ", string.Empty);
-            if (string.IsNullOrEmpty(parameter)) throw new ArgumentNullException($"Parameter {parameter} cannot be null or empty.");
+            if (string.IsNullOrWhiteSpace(parameter)) throw new ArgumentNullException($"Parameter cannot be null, empty, or whitespace.");
         }
 
         public static void IsNotNull(object parameter, string name)
