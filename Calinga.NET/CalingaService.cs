@@ -166,6 +166,17 @@ namespace Calinga.NET
         /// <param name="language">The language code.</param>
         /// <param name="invalidateCache">If true, bypasses the cache and fetches from the API. Do not use in combination with "UseCacheOnly"</param>
         /// <returns>A dictionary of translation keys and values.</returns>
+        /// <exception cref="ArgumentException">
+        /// Thrown when <paramref name="invalidateCache"/> is true while
+        /// <see cref="CalingaServiceSettings.UseCacheOnly"/> is true.
+        /// </exception>
+        /// <exception cref="TranslationsNotAvailableException">
+        /// Thrown when translations cannot be retrieved from cache or API and either
+        /// <see cref="CalingaServiceSettings.FallbackToReferenceLanguage"/> is false or the reference-language
+        /// fallback could not produce translations either. When the failure originates from the language list
+        /// being unavailable during fallback, the underlying <see cref="LanguagesNotAvailableException"/> is
+        /// preserved as the inner exception.
+        /// </exception>
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, bool invalidateCache)
         {
             Guard.IsNotNullOrWhiteSpace(language);
@@ -209,6 +220,13 @@ namespace Calinga.NET
         /// </summary>
         /// <param name="language">The language code.</param>
         /// <returns>A dictionary of translation keys and values.</returns>
+        /// <exception cref="TranslationsNotAvailableException">
+        /// Thrown when translations cannot be retrieved from cache or API and either
+        /// <see cref="CalingaServiceSettings.FallbackToReferenceLanguage"/> is false or the reference-language
+        /// fallback could not produce translations either. When the failure originates from the language list
+        /// being unavailable during fallback, the underlying <see cref="LanguagesNotAvailableException"/> is
+        /// preserved as the inner exception.
+        /// </exception>
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
         {
             return await GetTranslationsAsync(language, false);

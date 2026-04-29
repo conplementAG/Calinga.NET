@@ -31,6 +31,8 @@
             ## Further Changes
             - The dependency on Newtonsoft was removed and replaced by System.Text.Json
             - More detailed exception handling
+            - `GetReferenceLanguage()` now throws `TranslationsNotAvailableException` (previously `LanguagesNotAvailableException`). The reference language exists to drive translation fallback, so a failure to determine it is reported as a translations failure. The original `LanguagesNotAvailableException` is preserved as the inner exception when the language list itself was unavailable.
+            - `GetTranslationsAsync(string language)` no longer leaks `LanguagesNotAvailableException` out of the reference-language fallback path — callers consistently see `TranslationsNotAvailableException`.
         </PackageReleaseNotes>
     </PropertyGroup>
 
