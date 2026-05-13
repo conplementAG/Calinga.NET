@@ -124,7 +124,7 @@ namespace Calinga.NET
         /// <returns>A language context for translation operations.</returns>
         public ILanguageContext CreateContext(string language)
         {
-            Guard.IsNotNullOrWhiteSpace(language);
+            Guard.IsNotNullOrWhiteSpace(language, nameof(language));
 
             return new LanguageContext(language, this);
         }
@@ -137,8 +137,8 @@ namespace Calinga.NET
         /// <returns>The translated string or the key if not found.</returns>
         public async Task<string> TranslateAsync(string key, string language)
         {
-            Guard.IsNotNullOrWhiteSpace(language);
-            Guard.IsNotNullOrWhiteSpace(key);
+            Guard.IsNotNullOrWhiteSpace(language, nameof(language));
+            Guard.IsNotNullOrWhiteSpace(key, nameof(key));
 
             if (_settings.IsDevMode)
                 return key;
@@ -179,7 +179,7 @@ namespace Calinga.NET
         /// </exception>
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, bool invalidateCache)
         {
-            Guard.IsNotNullOrWhiteSpace(language);
+            Guard.IsNotNullOrWhiteSpace(language, nameof(language));
         
             if (invalidateCache && _settings.UseCacheOnly)
             {
@@ -227,9 +227,9 @@ namespace Calinga.NET
         /// being unavailable during fallback, the underlying <see cref="LanguagesNotAvailableException"/> is
         /// preserved as the inner exception.
         /// </exception>
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
+        public Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
         {
-            return await GetTranslationsAsync(language, false);
+            return GetTranslationsAsync(language, false);
         }
 
         /// <summary>
@@ -260,7 +260,7 @@ namespace Calinga.NET
         /// </exception>
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, IEnumerable<string> keys)
         {
-            Guard.IsNotNullOrWhiteSpace(language);
+            Guard.IsNotNullOrWhiteSpace(language, nameof(language));
             if (keys == null) throw new ArgumentNullException(nameof(keys));
 
             if (_settings.UseCacheOnly)
@@ -412,7 +412,7 @@ namespace Calinga.NET
 
                     if (foundList != null && foundList.Any())
                     {
-                        await _cachingService.StoreLanguagesAsync(foundList);
+                        await _cachingService.StoreLanguagesAsync(foundList).ConfigureAwait(false);
                     }
                 }
             }
@@ -429,9 +429,9 @@ namespace Calinga.NET
         private static void ValidateSettings(CalingaServiceSettings setting)
         {
             Guard.IsNotNull(setting, nameof(setting));
-            Guard.IsNotNullOrWhiteSpace(setting.Project);
-            Guard.IsNotNullOrWhiteSpace(setting.Organization);
-            Guard.IsNotNullOrWhiteSpace(setting.CacheDirectory);
+            Guard.IsNotNullOrWhiteSpace(setting.Project, nameof(setting.Project));
+            Guard.IsNotNullOrWhiteSpace(setting.Organization, nameof(setting.Organization));
+            Guard.IsNotNullOrWhiteSpace(setting.CacheDirectory, nameof(setting.CacheDirectory));
         }
     }
 }
