@@ -153,7 +153,7 @@ namespace Calinga.NET.Tests
             var result = await _service.GetTranslations(language, false);
 
             // Assert
-            Assert.IsFalse(result.FoundInCache);
+            Assert.IsFalse(result.FoundTranslationsInCache);
             Assert.AreEqual(0, result.Result.Count);
         }
 
@@ -171,7 +171,7 @@ namespace Calinga.NET.Tests
             var result = await _service.GetTranslations(language, false);
 
             // Assert
-            Assert.IsTrue(result.FoundInCache);
+            Assert.IsTrue(result.FoundTranslationsInCache);
             CollectionAssert.AreEquivalent(translations.ToList(), result.Result.ToList());
         }
 
@@ -496,7 +496,7 @@ namespace Calinga.NET.Tests
             var result = await _service.GetTranslations(language, false);
 
             // Assert
-            Assert.IsTrue(result.FoundInCache);
+            Assert.IsTrue(result.FoundTranslationsInCache);
             Assert.AreEqual(0, result.Result.Count);
         }
 
@@ -644,7 +644,7 @@ namespace Calinga.NET.Tests
 
                 // Verify file was written correctly
                 var result = await service.GetTranslations("de", false);
-                result.FoundInCache.Should().BeTrue();
+                result.FoundTranslationsInCache.Should().BeTrue();
                 result.Result.Count.Should().Be(2);
             }
             finally
@@ -718,7 +718,7 @@ namespace Calinga.NET.Tests
             var result = await _service.GetTranslations(language, false);
 
             // Assert
-            result.FoundInCache.Should().BeTrue();
+            result.FoundTranslationsInCache.Should().BeTrue();
             result.Result.Should().HaveCount(2);
             result.Result["key1"].Should().Be("value1");
             result.Result["key2"].Should().Be("value2");
@@ -744,6 +744,131 @@ namespace Calinga.NET.Tests
             result.Result.Should().HaveCount(2);
             result.Result.Should().ContainSingle(l => l.Name == "en" && l.IsReference);
             result.Result.Should().ContainSingle(l => l.Name == "de" && !l.IsReference);
+        }
+
+        #endregion
+
+        #region ETag sidecar
+
+        [TestMethod]
+        public async Task StoreTranslationsAsync_WritesETagSidecar_WhenETagProvided()
+        {
+            // Arrange — sidecar lives next to the translations file with the same
+            // language-derived base name and a .etag extension. We must write the
+            // tag verbatim so it round-trips byte-for-byte into the next
+            // If-None-Match header.
+            const string etag = "\"abc123\"";
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
+            _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
+            _fileSystem.Setup(fs => fs.WriteAllTextAsync(etagPath, etag)).Returns(Task.CompletedTask);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(false);
+            _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, jsonPath, null));
+
+            // Act
+            await _service.StoreTranslationsAsync(language, translations, etag);
+
+            // Assert
+            _fileSystem.Verify(fs => fs.WriteAllTextAsync(etagPath, etag), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task StoreTranslationsAsync_DoesNotWriteSidecar_WhenETagIsNull()
+        {
+            // Arrange — server returned 200 but emitted no ETag header. We must
+            // not create an empty/garbage sidecar that would later be sent as a
+            // bogus If-None-Match.
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
+            _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(false);
+            _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, jsonPath, null));
+
+            // Act
+            await _service.StoreTranslationsAsync(language, translations, null);
+
+            // Assert
+            _fileSystem.Verify(fs => fs.WriteAllTextAsync(etagPath, It.IsAny<string>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ReadsETagFromSidecar_WhenSidecarExists()
+        {
+            // Arrange — translations file and sidecar both present. The cache
+            // response must surface both so the caller can revalidate.
+            const string etag = "\"deadbeef\"";
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(jsonPath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(etagPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(etagPath)).ReturnsAsync(etag);
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundTranslationsInCache.Should().BeTrue();
+            result.ETag.Should().Be(etag);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ReturnsCacheMiss_WhenJsonMissingButETagSidecarPresent()
+        {
+            // Arrange — orphan sidecar: the .etag file exists on disk but its
+            // companion .json does not. Can happen after a partial write,
+            // tampered cache dir, or a crash mid-store. The cache must report
+            // a clean miss (no exception) so the higher layer falls through to
+            // a normal HTTP GET without trying to send a stale If-None-Match.
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(false);
+            _fileSystem.Setup(fs => fs.FileExists(etagPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(etagPath)).ReturnsAsync("\"orphan\"");
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundTranslationsInCache.Should().BeFalse();
+            result.ETag.Should().BeNull();
+            // Sidecar was never read (no point — without a body we can't safely revalidate).
+            _fileSystem.Verify(fs => fs.ReadAllTextAsync(etagPath), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ETagInLocalCacheIsNull_WhenSidecarMissing()
+        {
+            // Arrange — pre-ETag cache directory (older clients): translations
+            // file exists, sidecar does not. The cache must still return the
+            // translations and report ETag = null rather than erroring.
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(jsonPath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(etagPath)).Returns(false);
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundTranslationsInCache.Should().BeTrue();
+            result.ETag.Should().BeNull();
         }
 
         #endregion

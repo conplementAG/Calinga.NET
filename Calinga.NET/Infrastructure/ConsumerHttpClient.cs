@@ -44,13 +44,28 @@ namespace Calinga.NET.Infrastructure
             }
         }
 
-        public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language)
+        public Task<TranslationsHttpResponse> GetTranslationsAsync(string language) => GetTranslationsAsync(language, (string?)null);
+
+        public async Task<TranslationsHttpResponse> GetTranslationsAsync(string language, string? ifNoneMatch)
         {
             var queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
             var url = Invariant(
                 $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
 
-            var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (!string.IsNullOrEmpty(ifNoneMatch))
+            {
+                // TryAddWithoutValidation lets us echo the server's tag byte-for-byte, including
+                // any weak prefix or quoting — the server's filter compares strings literally.
+                request.Headers.TryAddWithoutValidation("If-None-Match", ifNoneMatch);
+            }
+
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+
+            if (response.StatusCode == HttpStatusCode.NotModified)
+            {
+                return TranslationsHttpResponse.NotModifiedResponse(GetResponseETag(response) ?? ifNoneMatch); //We fall back to the etag we sent, when the server did not resend it
+            }
 
             switch (response.StatusCode)
             {
@@ -68,7 +83,7 @@ namespace Calinga.NET.Infrastructure
 
             var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-            return CreateTranslationsDictionary(body);
+            return new TranslationsHttpResponse(CreateTranslationsDictionary(body), GetResponseETag(response), notModified: false);
         }
 
         public async Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, IEnumerable<string> keys)
@@ -130,6 +145,14 @@ namespace Calinga.NET.Infrastructure
         {
             return JsonSerializer.Deserialize<Dictionary<string, string>>(json)
                 ?? new Dictionary<string, string>();
+        }
+
+        private static string? GetResponseETag(HttpResponseMessage response)
+        {
+            // Use .Tag (just the quoted opaque value) and drop any weak prefix —
+            // the server compares If-None-Match using the same .Tag string, so
+            // weak vs strong never enters the equality check.
+            return response.Headers.ETag?.Tag;
         }
 
         private static IEnumerable<Language> DeserializeLanguages(string json)

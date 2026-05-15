@@ -21,12 +21,12 @@ namespace Calinga.NET.Caching
             {
                 var cacheResponse = await cachingService.GetTranslations(language, includeDrafts);
 
-                if (cacheResponse.FoundInCache)
+                if (cacheResponse.FoundTranslationsInCache)
                 {
                     // Backfill earlier caches that missed
                     foreach (var missedCache in missedCaches)
                     {
-                        await missedCache.StoreTranslationsAsync(language, cacheResponse.Result);
+                        await missedCache.StoreTranslationsAsync(language, cacheResponse.Result, cacheResponse.ETag);
                     }
                     return cacheResponse;
                 }
@@ -66,9 +66,12 @@ namespace Calinga.NET.Caching
             return Task.WhenAll(tasks.ToArray());
         }
 
-        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
+        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations) =>
+            StoreTranslationsAsync(language, translations, null);
+
+        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations, string? etag)
         {
-            var tasks = _cachingServices.Select(x => x.StoreTranslationsAsync(language, translations));
+            var tasks = _cachingServices.Select(x => x.StoreTranslationsAsync(language, translations, etag));
 
             return Task.WhenAll(tasks.ToArray());
         }
