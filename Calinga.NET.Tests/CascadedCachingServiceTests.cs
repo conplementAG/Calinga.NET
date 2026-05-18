@@ -76,15 +76,15 @@ namespace Calinga.NET.Tests
         public async Task StoreTranslation_ShouldAddTranslationToAllLevels()
         {
             // Arrange
-            _firstLevelCachingService.Setup(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()));
-            _secondLevelCachingService.Setup(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()));
+            _firstLevelCachingService.Setup(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string?>()));
+            _secondLevelCachingService.Setup(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string?>()));
 
             // Act
             await _sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
 
             // Assert
-            _firstLevelCachingService.Verify(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()), Times.Once);
-            _secondLevelCachingService.Verify(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()), Times.Once);
+            _firstLevelCachingService.Verify(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string?>()), Times.Once);
+            _secondLevelCachingService.Verify(x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string?>()), Times.Once);
         }
 
         [TestMethod]
@@ -110,7 +110,7 @@ namespace Calinga.NET.Tests
                 .ReturnsAsync(CacheResponse.Empty);
             _secondLevelCachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false))
                 .ReturnsAsync(TestData.Cache_Translations_De);
-            _firstLevelCachingService.Setup(x => x.StoreTranslationsAsync(TestData.Language_DE, It.IsAny<IReadOnlyDictionary<string, string>>()))
+            _firstLevelCachingService.Setup(x => x.StoreTranslationsAsync(TestData.Language_DE, It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string?>()))
                 .Returns(Task.CompletedTask);
 
             // Act
@@ -120,7 +120,7 @@ namespace Calinga.NET.Tests
             actual.Result.Should().BeEquivalentTo(TestData.Translations_De);
             _firstLevelCachingService.Verify(
                 x => x.StoreTranslationsAsync(TestData.Language_DE, It.Is<IReadOnlyDictionary<string, string>>(
-                    dict => dict.Count == TestData.Translations_De.Count)),
+                    dict => dict.Count == TestData.Translations_De.Count), It.IsAny<string?>()),
                 Times.Once,
                 "First level cache should be backfilled when second level has data");
         }
@@ -138,7 +138,7 @@ namespace Calinga.NET.Tests
             // Assert
             actual.Result.Should().BeEquivalentTo(TestData.Translations_De);
             _firstLevelCachingService.Verify(
-                x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>()),
+                x => x.StoreTranslationsAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<string?>()),
                 Times.Never,
                 "No backfill should occur when first level already has data");
             _secondLevelCachingService.Verify(
