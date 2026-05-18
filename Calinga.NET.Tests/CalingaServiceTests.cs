@@ -843,7 +843,7 @@ namespace Calinga.NET.Tests
             // reuse the cached translations and call StoreTranslationsAsync to
             // refresh the expiration timer.
             const string cachedETag = "\"abc\"";
-            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundInCache: true, etag: cachedETag, isStale: true);
+            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: cachedETag, isStale: true);
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
                 .ReturnsAsync(staleCacheResponse);
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE, cachedETag))
@@ -867,7 +867,7 @@ namespace Calinga.NET.Tests
             // not the old one (otherwise the next revalidation sends a stale tag).
             const string oldETag = "\"old\"";
             const string newETag = "\"new\"";
-            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundInCache: true, etag: oldETag, isStale: true);
+            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: oldETag, isStale: true);
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
                 .ReturnsAsync(staleCacheResponse);
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE, oldETag))
@@ -907,7 +907,7 @@ namespace Calinga.NET.Tests
         {
             // Arrange — fresh cache hit must short-circuit; no HTTP at all.
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
-                .ReturnsAsync(new CacheResponse(TestData.Translations_De, foundInCache: true, etag: "\"abc\"", isStale: false));
+                .ReturnsAsync(new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: "\"abc\"", isStale: false));
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
             // Act
@@ -927,7 +927,7 @@ namespace Calinga.NET.Tests
             // can serve it without a full download.
             const string cachedETag = "\"abc\"";
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
-                .ReturnsAsync(new CacheResponse(TestData.Translations_De, foundInCache: true, etag: cachedETag, isStale: false));
+                .ReturnsAsync(new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: cachedETag, isStale: false));
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE, cachedETag))
                 .ReturnsAsync(new TranslationsHttpResponse(TestData.Translations_En, "\"new\"", notModified: false));
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
@@ -948,7 +948,7 @@ namespace Calinga.NET.Tests
             // offline to lose all translations after the first expiry.
             var settings = CreateSettings();
             settings.UseCacheOnly = true;
-            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundInCache: true, etag: "\"abc\"", isStale: true);
+            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: "\"abc\"", isStale: true);
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, settings.IncludeDrafts))
                 .ReturnsAsync(staleCacheResponse);
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings);
