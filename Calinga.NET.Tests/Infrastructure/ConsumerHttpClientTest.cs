@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
@@ -203,7 +205,103 @@ namespace Calinga.NET.Tests.Infrastructure
 
             // Assert
             result.Should().NotBeNull();
-            result.Should().BeEmpty();
+            result.Translations.Should().BeEmpty();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_SendsIfNoneMatch_WhenCachedETagProvided()
+        {
+            // Arrange — when the caller supplies a cached ETag, ConsumerHttpClient must
+            // place it in the outgoing If-None-Match header so the server can answer 304.
+            const string cachedETag = "\"abc123\"";
+            HttpRequestMessage? capturedRequest = null;
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .With(req => { capturedRequest = req; return true; })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", cachedETag).ConfigureAwait(false);
+
+            // Assert
+            capturedRequest.Should().NotBeNull();
+            var ifNoneMatchTags = capturedRequest!.Headers.IfNoneMatch.ToList();
+            ifNoneMatchTags.Should().HaveCount(1);
+            ifNoneMatchTags[0].Tag.Should().Be(cachedETag);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_On304_ReturnsNotModifiedFlag_WithEmptyTranslations()
+        {
+            // Arrange — a 304 response means the cached body is still fresh.
+            // The client must surface NotModified=true rather than throwing
+            // TranslationsNotAvailableException (the legacy behaviour).
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond(HttpStatusCode.NotModified);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var response = await sut.GetTranslationsAsync("de", "\"abc123\"").ConfigureAwait(false);
+
+            // Assert
+            response.Should().NotBeNull();
+            response.NotModified.Should().BeTrue();
+            response.Translations.Should().BeEmpty();
+            response.ETag.Should().Be("\"abc123\"");
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_On200_ReturnsETagFromResponseHeader()
+        {
+            // Arrange — fresh 200 response carries an ETag header. The client must
+            // surface that ETag so the caching layer can store it for next time.
+            const string serverETag = "\"deadbeef\"";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond(_ =>
+                {
+                    var resp = new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"k1\":\"v1\"}", Encoding.UTF8, "application/json")
+                    };
+                    resp.Headers.ETag = new EntityTagHeaderValue(serverETag, true);
+                    return resp;
+                });
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var response = await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            response.NotModified.Should().BeFalse();
+            response.ETag.Should().Be(serverETag);
+            response.Translations.Should().BeEquivalentTo(new Dictionary<string, string> { { "k1", "v1" } });
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_On200WithoutETagHeader_ReturnsNullETag()
+        {
+            // Arrange — server is reachable but did not emit an ETag (e.g. cache
+            // bypass, proxy stripping). The client must not invent one; downstream
+            // logic relies on null to mean "no ETag known".
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", "{\"k1\":\"v1\"}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var response = await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            response.NotModified.Should().BeFalse();
+            response.ETag.Should().BeNull();
+            response.Translations.Should().BeEquivalentTo(new Dictionary<string, string> { { "k1", "v1" } });
         }
 
         private static CalingaServiceSettings CreateSettings(bool isDevMode = false)

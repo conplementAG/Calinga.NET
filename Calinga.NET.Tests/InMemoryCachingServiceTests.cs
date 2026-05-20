@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -35,19 +35,44 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetTranslations_ShouldClearCache_WhenCacheExpired()
+        public async Task GetTranslations_ShouldReturnStaleEntry_WhenCacheExpired()
         {
-            // Arrange
+            // Arrange — translations + ETag stored, then time advanced past expiry.
+            // The entry must remain readable so the caller can revalidate the
+            // server (If-None-Match) without re-downloading the body.
             var timeService = new Mock<IDateTimeService>();
             var sut = new InMemoryCachingService(timeService.Object, GetSettings(2));
-            await sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
+            await sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De, "\"abc\"");
 
             // Act
             timeService.Setup(t => t.GetCurrentDateTime()).Returns(DateTime.Now.AddSeconds(7));
             var actual = await sut.GetTranslations(TestData.Language_DE, false);
 
             // Assert
-            actual.Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
+            actual.FoundTranslationsInCache.Should().BeTrue();
+            actual.IsStale.Should().BeTrue();
+            actual.Result.Should().BeEquivalentTo(TestData.Translations_De);
+            actual.ETag.Should().Be("\"abc\"");
+        }
+
+        [TestMethod]
+        public async Task StoreTranslationsAsync_AfterExpiry_FlipsIsStaleBackToFalse()
+        {
+            // Arrange — once a Store occurs (e.g. after a successful revalidation),
+            // the entry must be considered fresh again.
+            var timeService = new Mock<IDateTimeService>();
+            timeService.Setup(t => t.GetCurrentDateTime()).Returns(DateTime.Now);
+            var sut = new InMemoryCachingService(timeService.Object, GetSettings(2));
+            await sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De, "\"abc\"");
+            timeService.Setup(t => t.GetCurrentDateTime()).Returns(DateTime.Now.AddSeconds(7));
+            (await sut.GetTranslations(TestData.Language_DE, false)).IsStale.Should().BeTrue();
+
+            // Act — fresh store at the new "now"
+            await sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De, "\"abc\"");
+
+            // Assert
+            var actual = await sut.GetTranslations(TestData.Language_DE, false);
+            actual.IsStale.Should().BeFalse();
         }
 
         [TestMethod]
@@ -139,6 +164,53 @@ namespace Calinga.NET.Tests
             (await _sut.GetTranslations(TestData.Language_EN, false)).Result.Should().BeEquivalentTo(TestData.EmptyTranslations);
         }
 
+        [TestMethod]
+        public async Task StoreTranslationsAsync_PersistsETag_AlongsideTranslations()
+        {
+            // Arrange — ETag is the cache's contract with the server: store-then-read
+            // must round-trip the value so we can revalidate via If-None-Match.
+            const string etag = "\"abc123\"";
+
+            // Act
+            await _sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De, etag);
+            var actual = await _sut.GetTranslations(TestData.Language_DE, false);
+
+            // Assert
+            actual.FoundTranslationsInCache.Should().BeTrue();
+            actual.ETag.Should().Be(etag);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ETagInLocalCacheIsNull_WhenStoredWithoutETag()
+        {
+            // Arrange — back-compat: existing callers that store without an ETag
+            // (server didn't emit one, or older code path) must see ETag = null.
+            await _sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De);
+
+            // Act
+            var actual = await _sut.GetTranslations(TestData.Language_DE, false);
+
+            // Assert
+            actual.FoundTranslationsInCache.Should().BeTrue();
+            actual.ETag.Should().BeNull();
+        }
+
+        [TestMethod]
+        public async Task StoreTranslationsAsync_OverwritesETag_OnSecondStore()
+        {
+            // Arrange — when fresh translations arrive (200 with new ETag), the
+            // stored ETag must be replaced. Otherwise we'd revalidate against
+            // stale content with a stale ETag.
+            await _sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De, "\"old\"");
+
+            // Act
+            await _sut.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De, "\"new\"");
+            var actual = await _sut.GetTranslations(TestData.Language_DE, false);
+
+            // Assert
+            actual.ETag.Should().Be("\"new\"");
+        }
+
         private CalingaServiceSettings GetSettings(uint? expiration = null)
         {
             return new CalingaServiceSettings { MemoryCacheExpirationIntervalInSeconds = expiration == null ? default : expiration.Value };
@@ -165,7 +237,7 @@ namespace Calinga.NET.Tests
 
             // Verify data is correctly stored
             var result = await sut.GetTranslations(TestData.Language_DE, false);
-            result.FoundInCache.Should().BeTrue();
+            result.FoundTranslationsInCache.Should().BeTrue();
             result.Result.Should().BeEquivalentTo(TestData.Translations_De);
         }
 
@@ -189,7 +261,7 @@ namespace Calinga.NET.Tests
             foreach (var lang in languages)
             {
                 var result = await sut.GetTranslations(lang, false);
-                result.FoundInCache.Should().BeTrue($"language {lang} should be cached");
+                result.FoundTranslationsInCache.Should().BeTrue($"language {lang} should be cached");
             }
         }
 

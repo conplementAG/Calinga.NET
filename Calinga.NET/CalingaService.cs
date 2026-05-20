@@ -188,11 +188,20 @@ namespace Calinga.NET
         
             while (true)
             {
-                var translations = await TryGetFromCache(language, invalidateCache).ConfigureAwait(false);
-                if (translations != null)
-                    return translations;
-        
-                translations = await TryGetFromApi(language).ConfigureAwait(false);
+                // Always read the cache: invalidateCache only suppresses the
+                // fast-path return. The cached ETag is still useful for
+                // If-None-Match revalidation, which lets the server answer 304
+                // and save a full body transfer when nothing has changed.
+                var cacheResponse = await TryReadCache(language).ConfigureAwait(false);
+
+                if (!invalidateCache && cacheResponse.FoundTranslationsInCache && !cacheResponse.IsStale)
+                {
+                    _logger.Info($"Translations for language {language} fetched from cache");
+                    var fresh = cacheResponse.Result;
+                    return _settings.IsDevMode ? fresh.ToDictionary(k => k.Key, k => k.Key) : fresh;
+                }
+
+                var translations = await TryGetFromApi(language, cacheResponse).ConfigureAwait(false);
                 if (translations != null)
                     return translations;
 
@@ -294,40 +303,54 @@ namespace Calinga.NET
             return subset;
         }
 
-        private async Task<IReadOnlyDictionary<string, string>?> TryGetFromCache(string language, bool invalidateCache)
+        private async Task<CacheResponse> TryReadCache(string language)
         {
-            if (invalidateCache)
-                return null;
-        
             try
             {
-                var cacheResponse = await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
-                if (cacheResponse is { FoundInCache: true })
-                {
-                    _logger.Info($"Translations for language {language} fetched from cache");
-                    var result = cacheResponse.Result;
-                    return _settings.IsDevMode ? result.ToDictionary(k => k.Key, k => k.Key) : result;
-                }
+                return await _cachingService.GetTranslations(language, _settings.IncludeDrafts).ConfigureAwait(false);
             }
             catch (Exception e)
             {
                 _logger.Warn($"Error while fetching translations for language {language} from cache. Trying to fetch from consumer API. Error: {e.Message}");
+                return CacheResponse.Empty;
             }
-            return null;
         }
-        
-        private async Task<IReadOnlyDictionary<string, string>?> TryGetFromApi(string language)
+
+        private async Task<IReadOnlyDictionary<string, string>?> TryGetFromApi(string language, CacheResponse cacheResponse)
         {
             if (_settings.UseCacheOnly)
+            {
+                // No HTTP allowed — surface whatever cache holds (fresh or stale).
+                if (cacheResponse.FoundTranslationsInCache)
+                {
+                    var cached = cacheResponse.Result;
+                    return _settings.IsDevMode ? cached.ToDictionary(k => k.Key, k => k.Key) : cached;
+                }
                 return null;
-        
+            }
+
+            var ifNoneMatch = cacheResponse.FoundTranslationsInCache ? cacheResponse.ETag : null;
+
             try
             {
-                var foundTranslations = await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false);
+                var httpResponse = ifNoneMatch == null
+                    ? await _consumerHttpClient.GetTranslationsAsync(language).ConfigureAwait(false)
+                    : await _consumerHttpClient.GetTranslationsAsync(language, ifNoneMatch).ConfigureAwait(false);
+
+                if (httpResponse.NotModified && cacheResponse.FoundTranslationsInCache)
+                {
+                    _logger.Info($"Translations for language {language} unchanged (304); reusing cached entry and refreshing expiration");
+                    var etagToStore = cacheResponse.ETag ?? httpResponse.ETag;
+                    await _cachingService.StoreTranslationsAsync(language, cacheResponse.Result, etagToStore).ConfigureAwait(false);
+                    var reused = cacheResponse.Result;
+                    return _settings.IsDevMode ? reused.ToDictionary(k => k.Key, k => k.Key) : reused;
+                }
+
+                var foundTranslations = httpResponse.Translations;
                 if (foundTranslations != null && foundTranslations.Any())
                 {
                     _logger.Info($"Translations for language {language} fetched from consumer API");
-                    await _cachingService.StoreTranslationsAsync(language, foundTranslations).ConfigureAwait(false);
+                    await _cachingService.StoreTranslationsAsync(language, foundTranslations, httpResponse.ETag).ConfigureAwait(false);
                     return _settings.IsDevMode ? foundTranslations.ToDictionary(k => k.Key, k => k.Key) : foundTranslations;
                 }
             }

@@ -347,7 +347,7 @@ namespace Calinga.NET.Tests
         {
             // Arrange
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, false)).ReturnsAsync(CacheResponse.Empty);
-            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).ReturnsAsync(TestData.Translations_De);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).ReturnsAsync(TestData.Http_Translations_De);
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
 
             // Act
@@ -386,7 +386,7 @@ namespace Calinga.NET.Tests
             _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, settings.IncludeDrafts)).Throws<TranslationsNotAvailableException>();
             _cachingService.Setup(x => x.GetTranslations(referenceLanguage, settings.IncludeDrafts)).ReturnsAsync(TestData.Cache_Translations_En);
             _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).Throws<TranslationsNotAvailableException>();
-            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(referenceLanguage)).ReturnsAsync(TestData.Translations_En);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(referenceLanguage)).ReturnsAsync(new TranslationsHttpResponse(TestData.Translations_En, null, false));
             _cachingService.Setup(x => x.GetLanguages())
                 .ReturnsAsync(new CachedLanguageListResponse(new List<Language> { new Language { Name = referenceLanguage, IsReference = true } },
                     true));
@@ -507,16 +507,21 @@ namespace Calinga.NET.Tests
         }
 
         [TestMethod]
-        public async Task GetTranslationsAsync_ShouldBypassCache_WhenInvalidateCacheIsTrue()
+        public async Task GetTranslationsAsync_InvalidateCache_ReturnsBodyFromHttp_NotFromCache()
         {
-            // Arrange
+            // Arrange — invalidateCache=true skips the fast-path return so the
+            // body comes from HTTP. The cache is still read (to surface a
+            // possible ETag), but its body is not returned directly.
+            // Default Init() makes the cache return Translations_De with no ETag.
             var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
-            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE)).ReturnsAsync(TestData.Translations_De);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE))
+                .ReturnsAsync(new TranslationsHttpResponse(TestData.Translations_En, etag: null, notModified: false));
+
             // Act
             var translations = await service.GetTranslationsAsync(TestData.Language_DE, invalidateCache: true);
+
             // Assert
-            translations.Should().BeEquivalentTo(TestData.Translations_De);
-            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+            translations.Should().BeEquivalentTo(TestData.Translations_En);
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE), Times.Once);
         }
 
@@ -530,7 +535,6 @@ namespace Calinga.NET.Tests
             Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE, invalidateCache: true);
             // Assert
             await act.Should().ThrowAsync<TranslationsNotAvailableException>();
-            _cachingService.Verify(x => x.GetTranslations(It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
             _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE), Times.Once);
         }
 
@@ -828,5 +832,160 @@ namespace Calinga.NET.Tests
         }
 
         #endregion Keyed GetTranslationsAsync
+
+        #region ETag revalidation
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_StaleCache_ServerReturns304_ReturnsCachedAndRefreshesExpiration()
+        {
+            // Arrange — cache hit but expired; the entry's stored ETag drives
+            // a conditional GET. Server confirms "still fresh" with 304, so we
+            // reuse the cached translations and call StoreTranslationsAsync to
+            // refresh the expiration timer.
+            const string cachedETag = "\"abc\"";
+            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: cachedETag, isStale: true);
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .ReturnsAsync(staleCacheResponse);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE, cachedETag))
+                .ReturnsAsync(TranslationsHttpResponse.NotModifiedResponse(cachedETag));
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE);
+
+            // Assert
+            result.Should().BeEquivalentTo(TestData.Translations_De);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE, cachedETag), Times.Once);
+            _cachingService.Verify(x => x.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_De, cachedETag), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_StaleCache_ServerReturns200_StoresNewTranslationsWithNewETag()
+        {
+            // Arrange — cache stale with old ETag; server returns fresh body and
+            // a new ETag. We must use the new data and persist the new ETag,
+            // not the old one (otherwise the next revalidation sends a stale tag).
+            const string oldETag = "\"old\"";
+            const string newETag = "\"new\"";
+            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: oldETag, isStale: true);
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .ReturnsAsync(staleCacheResponse);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE, oldETag))
+                .ReturnsAsync(new TranslationsHttpResponse(TestData.Translations_En, newETag, notModified: false));
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE);
+
+            // Assert
+            result.Should().BeEquivalentTo(TestData.Translations_En);
+            _cachingService.Verify(x => x.StoreTranslationsAsync(TestData.Language_DE, TestData.Translations_En, newETag), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_CacheMiss_DoesNotSendIfNoneMatch()
+        {
+            // Arrange — empty cache: no ETag to send. Must hit the no-revalidation
+            // overload, not the 2-arg one with a null/empty ETag (the server-side
+            // contract is "include If-None-Match only if you have one").
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .ReturnsAsync(CacheResponse.Empty);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE))
+                .ReturnsAsync(TestData.Http_Translations_De);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            await service.GetTranslationsAsync(TestData.Language_DE);
+
+            // Assert
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE), Times.Once);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_FreshCache_DoesNotHitHttp()
+        {
+            // Arrange — fresh cache hit must short-circuit; no HTTP at all.
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .ReturnsAsync(new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: "\"abc\"", isStale: false));
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            await service.GetTranslationsAsync(TestData.Language_DE);
+
+            // Assert
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_InvalidateCache_StillSendsIfNoneMatch_WhenCachedETagAvailable()
+        {
+            // Arrange — invalidateCache means "refresh the body", not "skip
+            // revalidation". The cached ETag is still useful: if the server
+            // returns 304, we know our cache body is the current truth and
+            // can serve it without a full download.
+            const string cachedETag = "\"abc\"";
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .ReturnsAsync(new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: cachedETag, isStale: false));
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE, cachedETag))
+                .ReturnsAsync(new TranslationsHttpResponse(TestData.Translations_En, "\"new\"", notModified: false));
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            await service.GetTranslationsAsync(TestData.Language_DE, invalidateCache: true);
+
+            // Assert
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE, cachedETag), Times.Once);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_UseCacheOnly_StaleData_ReturnsStaleWithoutHttp()
+        {
+            // Arrange — UseCacheOnly forbids HTTP. If the cache holds anything
+            // (fresh or stale), surface it. Skipping it would force callers
+            // offline to lose all translations after the first expiry.
+            var settings = CreateSettings();
+            settings.UseCacheOnly = true;
+            var staleCacheResponse = new CacheResponse(TestData.Translations_De, foundTranslationsInCache: true, etag: "\"abc\"", isStale: true);
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, settings.IncludeDrafts))
+                .ReturnsAsync(staleCacheResponse);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, settings);
+
+            // Act
+            var result = await service.GetTranslationsAsync(TestData.Language_DE);
+
+            // Assert
+            result.Should().BeEquivalentTo(TestData.Translations_De);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>()), Times.Never);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_CacheReportsMiss_DoesNotCrash_AndSkipsIfNoneMatch()
+        {
+            // Arrange — simulates the on-disk orphan-ETag scenario at the
+            // service level: even if a sidecar exists, FileCachingService
+            // returns a clean miss when the .json is gone. CalingaService
+            // must accept that, fall through to a plain GET (no
+            // If-None-Match), and return the server's response without
+            // throwing.
+            _cachingService.Setup(x => x.GetTranslations(TestData.Language_DE, _testCalingaServiceSettings.IncludeDrafts))
+                .ReturnsAsync(CacheResponse.Empty);
+            _consumerHttpClient.Setup(x => x.GetTranslationsAsync(TestData.Language_DE))
+                .ReturnsAsync(TestData.Http_Translations_De);
+            var service = new CalingaService(_cachingService.Object, _consumerHttpClient.Object, _testCalingaServiceSettings);
+
+            // Act
+            Func<Task> act = async () => await service.GetTranslationsAsync(TestData.Language_DE);
+
+            // Assert
+            await act.Should().NotThrowAsync();
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(TestData.Language_DE), Times.Once);
+            _consumerHttpClient.Verify(x => x.GetTranslationsAsync(It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
+        }
+
+        #endregion ETag revalidation
     }
 }
