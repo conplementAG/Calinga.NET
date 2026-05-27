@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using Calinga.NET.Tests.Context;
 using FluentAssertions;
-using TechTalk.SpecFlow;
+using Reqnroll;
 
 namespace Calinga.NET.Tests.Steps
 {
