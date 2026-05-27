@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Calinga.NET.Caching;
+using Calinga.NET.Infrastructure;
 using static System.FormattableString;
 
 namespace Calinga.NET.Tests
@@ -13,7 +14,7 @@ namespace Calinga.NET.Tests
         internal const string Key_1 = "UnitTest_Key1";
         internal const string Key_2 = "UnitTest_Key2";
         internal const string Translation_Key_1 = "translation for key 1";
-        internal const string Translation_Key_2 = "translation for key 1";
+        internal const string Translation_Key_2 = "translation for key 2";
 
         internal static CacheResponse Cache_Translations_De = new CacheResponse(Translations_De, true);
         internal static CacheResponse Cache_Translations_En = new CacheResponse(Translations_En, true);
@@ -21,6 +22,8 @@ namespace Calinga.NET.Tests
         internal static IReadOnlyDictionary<string, string> Translations_De => CreateTranslations(Language_DE);
 
         internal static IReadOnlyDictionary<string, string> Translations_En => CreateTranslations(Language_EN);
+
+        internal static TranslationsHttpResponse Http_Translations_De => new TranslationsHttpResponse(Translations_De, null, false);
 
         internal static IReadOnlyDictionary<string, string> EmptyTranslations =>
             new ReadOnlyDictionary<string, string>(new Dictionary<string, string>());

@@ -1,11 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Threading.Tasks;
 using Calinga.NET.Caching;
 using Calinga.NET.Infrastructure;
+using Calinga.NET.Infrastructure.Exceptions;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Text.Json;
 using RichardSzalay.MockHttp;
 
 namespace Calinga.NET.Tests.Infrastructure
@@ -29,7 +35,7 @@ namespace Calinga.NET.Tests.Infrastructure
             mockMessageHandler
                 .When($"https://api.calinga.io/v3/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages*")
                 .Respond("application/json",
-                    "[ { 'name': 'en', 'tag': '', 'isReference': true }, { 'name': 'en-GB', 'tag': '', 'isReference': false }, { 'name': 'en-GB', 'tag': 'Intranet', 'isReference': false } ]");
+                    @"[ { ""name"": ""en"", ""tag"": """", ""isReference"": true }, { ""name"": ""en-GB"", ""tag"": """", ""isReference"": false }, { ""name"": ""en-GB"", ""tag"": ""Intranet"", ""isReference"": false } ]");
 
             var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
 
@@ -43,6 +49,259 @@ namespace Calinga.NET.Tests.Infrastructure
                 new Language { Name = "en-GB", IsReference = false },
                 new Language { Name = "en-GB~Intranet", IsReference = false }
             });
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_UsesPost_ToV3LanguagesUrl()
+        {
+            // Arrange
+            var expectedUrl = $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/de";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .Expect(HttpMethod.Post, expectedUrl)
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            mockMessageHandler.VerifyNoOutstandingExpectation();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_SendsJsonBody_WithKeyNames()
+        {
+            // Arrange
+            var expectedUrl = $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/de";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .Expect(HttpMethod.Post, expectedUrl)
+                .With(request =>
+                {
+                    if (request.Content == null) return false;
+                    if (request.Content.Headers.ContentType?.MediaType != "application/json") return false;
+                    var body = request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    using var parsed = JsonDocument.Parse(body);
+                    if (!parsed.RootElement.TryGetProperty("keyNames", out var keyNamesElement)) return false;
+                    var keyNames = keyNamesElement.EnumerateArray().Select(e => e.GetString()).ToList();
+                    return keyNames.SequenceEqual(new[] { "k1", "k2" });
+                })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", new[] { "k1", "k2" }).ConfigureAwait(false);
+
+            // Assert
+            mockMessageHandler.VerifyNoOutstandingExpectation();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_IncludeDrafts_AddsQueryString()
+        {
+            // Arrange
+            var settings = CreateSettings();
+            settings.IncludeDrafts = true;
+            var expectedUrl =
+                $"{settings.ConsumerApiBaseUrl}/{settings.Organization}/{settings.Team}/{settings.Project}/languages/de?includeDrafts=True";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .Expect(HttpMethod.Post, expectedUrl)
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            mockMessageHandler.VerifyNoOutstandingExpectation();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_On404_ThrowsTranslationsNotFound()
+        {
+            // Arrange
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond(HttpStatusCode.NotFound);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<TranslationsNotFoundException>();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_On401_ThrowsAuthorizationFailed()
+        {
+            // Arrange
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond(HttpStatusCode.Unauthorized);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<AuthorizationFailedException>();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_On500_ThrowsTranslationsNotAvailable()
+        {
+            // Arrange
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond(HttpStatusCode.InternalServerError);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<TranslationsNotAvailableException>();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_WithKeyList_OnNullJsonBody_ReturnsEmptyDictionary()
+        {
+            // Arrange — the API responds 200 OK with the literal JSON value "null".
+            // System.Text.Json deserialises that to a CLR null; the client must surface
+            // an empty dictionary instead of letting null propagate to callers.
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Post, "*")
+                .Respond("application/json", "null");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var result = await sut.GetTranslationsAsync("de", new[] { "k1" }).ConfigureAwait(false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Should().BeEmpty();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_OnNullJsonBody_ReturnsEmptyDictionary()
+        {
+            // Arrange — same null-body scenario for the existing GET overload, since both
+            // paths share the CreateTranslationsDictionary helper.
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", "null");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var result = await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.Translations.Should().BeEmpty();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_SendsIfNoneMatch_WhenCachedETagProvided()
+        {
+            // Arrange — when the caller supplies a cached ETag, ConsumerHttpClient must
+            // place it in the outgoing If-None-Match header so the server can answer 304.
+            const string cachedETag = "\"abc123\"";
+            HttpRequestMessage? capturedRequest = null;
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .With(req => { capturedRequest = req; return true; })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de", cachedETag).ConfigureAwait(false);
+
+            // Assert
+            capturedRequest.Should().NotBeNull();
+            var ifNoneMatchTags = capturedRequest!.Headers.IfNoneMatch.ToList();
+            ifNoneMatchTags.Should().HaveCount(1);
+            ifNoneMatchTags[0].Tag.Should().Be(cachedETag);
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_On304_ReturnsNotModifiedFlag_WithEmptyTranslations()
+        {
+            // Arrange — a 304 response means the cached body is still fresh.
+            // The client must surface NotModified=true rather than throwing
+            // TranslationsNotAvailableException (the legacy behaviour).
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond(HttpStatusCode.NotModified);
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var response = await sut.GetTranslationsAsync("de", "\"abc123\"").ConfigureAwait(false);
+
+            // Assert
+            response.Should().NotBeNull();
+            response.NotModified.Should().BeTrue();
+            response.Translations.Should().BeEmpty();
+            response.ETag.Should().Be("\"abc123\"");
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_On200_ReturnsETagFromResponseHeader()
+        {
+            // Arrange — fresh 200 response carries an ETag header. The client must
+            // surface that ETag so the caching layer can store it for next time.
+            const string serverETag = "\"deadbeef\"";
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond(_ =>
+                {
+                    var resp = new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("{\"k1\":\"v1\"}", Encoding.UTF8, "application/json")
+                    };
+                    resp.Headers.ETag = new EntityTagHeaderValue(serverETag, true);
+                    return resp;
+                });
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var response = await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            response.NotModified.Should().BeFalse();
+            response.ETag.Should().Be(serverETag);
+            response.Translations.Should().BeEquivalentTo(new Dictionary<string, string> { { "k1", "v1" } });
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_On200WithoutETagHeader_ReturnsNullETag()
+        {
+            // Arrange — server is reachable but did not emit an ETag (e.g. cache
+            // bypass, proxy stripping). The client must not invent one; downstream
+            // logic relies on null to mean "no ETag known".
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", "{\"k1\":\"v1\"}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            var response = await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            response.NotModified.Should().BeFalse();
+            response.ETag.Should().BeNull();
+            response.Translations.Should().BeEquivalentTo(new Dictionary<string, string> { { "k1", "v1" } });
         }
 
         private static CalingaServiceSettings CreateSettings(bool isDevMode = false)

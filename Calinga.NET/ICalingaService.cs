@@ -3,12 +3,13 @@ using System.Threading.Tasks;
 
 namespace Calinga.NET
 {
-    public interface  ICalingaService
+    public interface ICalingaService
     {
         Task<string> TranslateAsync(string key, string language);
 
         Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language);
         Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, bool invalidateCache);
+        Task<IReadOnlyDictionary<string, string>> GetTranslationsAsync(string language, IEnumerable<string> keys);
 
         Task<IEnumerable<string>> GetLanguagesAsync();
 

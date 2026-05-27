@@ -2,7 +2,6 @@
 
 namespace Calinga.NET.Infrastructure.Exceptions
 {
-    [Serializable]
     public class TranslationsNotAvailableException : Exception
     {
         public TranslationsNotAvailableException()
