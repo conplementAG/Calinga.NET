@@ -82,9 +82,6 @@ To fetch translations for languages with language tag you must provide the langu
 
 e.g. `de-AT~Intranet`.
 
-<<<<<<< HEAD
-Calls to `GetLanguagesAsync()` will also return languages in this format.
-=======
 Calls to `GetLanguagesAsync()` will also return languages in this format.
 
 ## Fetching a subset of keys
@@ -113,4 +110,3 @@ var translations = await calingaService.GetTranslationsAsync("de", keys);
 | `GetTranslationsAsync(language, keys)` with any keys while `UseCacheOnly = true` | — | — | — | Throws `InvalidOperationException` |
 
 Both calls share the existing `ConsumerApiBaseUrl` setting — no additional URL configuration is required.
->>>>>>> feature/keyFiltering
