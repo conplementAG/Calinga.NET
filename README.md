@@ -110,5 +110,3 @@ var translations = await calingaService.GetTranslationsAsync("de", keys);
 | `GetTranslationsAsync(language, keys)` with any keys while `UseCacheOnly = true` | — | — | — | Throws `InvalidOperationException` |
 
 Both calls share the existing `ConsumerApiBaseUrl` setting — no additional URL configuration is required.
-
-Test
