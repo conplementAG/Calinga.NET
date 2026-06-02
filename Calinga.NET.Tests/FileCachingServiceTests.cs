@@ -185,7 +185,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).Throws<IOException>();
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<TranslationsNotAvailableException>(() => _service.GetTranslations(language, false));
+            await Assert.ThrowsExactlyAsync<TranslationsNotAvailableException>(() => _service.GetTranslations(language, false));
         }
 
         [TestMethod]
@@ -231,7 +231,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).Throws<IOException>();
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<TranslationsNotAvailableException>(() => _service.GetLanguages());
+            await Assert.ThrowsExactlyAsync<TranslationsNotAvailableException>(() => _service.GetLanguages());
         }
 
         [TestMethod]
@@ -310,7 +310,7 @@ namespace Calinga.NET.Tests
             var invalidLanguage = "../en";
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<ArgumentException>(() => _service.StoreTranslationsAsync(invalidLanguage, translations));
+            await Assert.ThrowsExactlyAsync<ArgumentException>(() => _service.StoreTranslationsAsync(invalidLanguage, translations));
         }
 
         [TestMethod]
@@ -363,7 +363,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync("{invalid json}");
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<JsonException>(() => _service.GetTranslations(language, false));
+            await Assert.ThrowsExactlyAsync<JsonException>(() => _service.GetTranslations(language, false));
         }
 
         [TestMethod]
@@ -375,7 +375,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync("{invalid json}");
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<JsonException>(() => _service.GetLanguages());
+            await Assert.ThrowsExactlyAsync<JsonException>(() => _service.GetLanguages());
         }
 
         [TestMethod]
@@ -470,7 +470,7 @@ namespace Calinga.NET.Tests
             IReadOnlyDictionary<string, string> translations = null;
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => _service.StoreTranslationsAsync(language, translations));
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => _service.StoreTranslationsAsync(language, translations));
         }
 
         [TestMethod]
@@ -480,7 +480,7 @@ namespace Calinga.NET.Tests
             IEnumerable<Language> languages = null;
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => _service.StoreLanguagesAsync(languages));
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => _service.StoreLanguagesAsync(languages));
         }
 
         [TestMethod]

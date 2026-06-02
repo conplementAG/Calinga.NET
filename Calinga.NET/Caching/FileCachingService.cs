@@ -172,7 +172,7 @@ namespace Calinga.NET.Caching
             var etagPath = Path.Combine(_filePath, GetETagFileName(language));
             try
             {
-                await _fileSystem.WriteAllTextAsync(etagPath, etag).ConfigureAwait(false);
+                await _fileSystem.WriteAllTextAsync(etagPath, etag!).ConfigureAwait(false);
             }
             catch (IOException ex)
             {
