@@ -9,7 +9,7 @@ namespace Calinga.NET
 
         public LanguageContext(string language, ICalingaService service)
         {
-            Guard.IsNotNullOrWhiteSpace(language);
+            Guard.IsNotNullOrWhiteSpace(language, nameof(language));
 
             _language = language;
             _service = service;
@@ -17,7 +17,7 @@ namespace Calinga.NET
 
         public Task<string> TranslateAsync(string key)
         {
-            Guard.IsNotNullOrWhiteSpace(key);
+            Guard.IsNotNullOrWhiteSpace(key, nameof(key));
             return _service.TranslateAsync(key, _language);
         }
     }

@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Calinga.NET.Infrastructure;
 
@@ -19,6 +18,7 @@ namespace Calinga.NET.Caching
         private DateTime _expirationDate;
         private volatile IReadOnlyList<Language> _languagesList;
         private ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> _translations;
+        private ConcurrentDictionary<string, string> _etags;
 
         public InMemoryCachingService(IDateTimeService timeService, CalingaServiceSettings settings)
         {
@@ -27,27 +27,28 @@ namespace Calinga.NET.Caching
             _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
             _withExpirationDate = _expirationDate != DateTime.MaxValue;
             _translations = new ConcurrentDictionary<string, IReadOnlyDictionary<string, string>>();
+            _etags = new ConcurrentDictionary<string, string>();
             _languagesList = new List<Language>();
         }
 
         public Task<CacheResponse> GetTranslations(string language, bool includeDrafts)
         {
-            if (_withExpirationDate && IsCacheExpired())
+            if (!_translations.TryGetValue(language, out var translations))
             {
-                ClearCacheInternal();
                 return Task.FromResult(CacheResponse.Empty);
             }
 
-            return Task.FromResult(_translations.TryGetValue(language, out var translations)
-                ? new CacheResponse(translations, true)
-                : CacheResponse.Empty);
+            var etag = _etags.TryGetValue(language, out var storedEtag) ? storedEtag : null;
+            // On expiry we preserve the entry so callers can revalidate via If-None-Match.
+            // The next StoreTranslationsAsync resets _expirationDate, flipping IsStale back to false.
+            var isStale = _withExpirationDate && IsCacheExpired();
+            return Task.FromResult(new CacheResponse(translations, true, etag, isStale));
         }
 
         public Task<CachedLanguageListResponse> GetLanguages()
         {
             if (_withExpirationDate && IsCacheExpired())
             {
-                ClearCacheInternal();
                 return Task.FromResult(CachedLanguageListResponse.Empty);
             }
 
@@ -68,6 +69,7 @@ namespace Calinga.NET.Caching
             lock (_lock)
             {
                 _translations = new ConcurrentDictionary<string, IReadOnlyDictionary<string, string>>();
+                _etags = new ConcurrentDictionary<string, string>();
                 _languagesList = new List<Language>();
                 _expirationDate = DateTime.MinValue;
             }
@@ -84,9 +86,20 @@ namespace Calinga.NET.Caching
             return Task.CompletedTask;
         }
 
-        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations)
+        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations) =>
+            StoreTranslationsAsync(language, translations, null);
+
+        public Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations, string? etag)
         {
             _translations[language] = translations;
+            if (etag == null)
+            {
+                _etags.TryRemove(language, out _);
+            }
+            else
+            {
+                _etags[language] = etag;
+            }
             lock (_lock)
             {
                 _expirationDate = GetExpirationDate(_memoryCacheExpirationIntervalInSeconds);
@@ -105,11 +118,6 @@ namespace Calinga.NET.Caching
                 expiration = _expirationDate;
             }
             return _dateTimeService.GetCurrentDateTime() >= expiration;
-        }
-
-        private static DateTime ConvertToDateTime(object? date)
-        {
-            return Convert.ToDateTime(date);
         }
 
         private DateTime GetExpirationDate(uint? expiration)

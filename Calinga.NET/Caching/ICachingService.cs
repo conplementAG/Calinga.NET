@@ -13,6 +13,8 @@ namespace Calinga.NET.Caching
 
         Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations);
 
+        Task StoreTranslationsAsync(string language, IReadOnlyDictionary<string, string> translations, string? etag);
+
         Task ClearCache();
     }
 }

@@ -1,0 +1,30 @@
+# Default: Git decides per-file based on heuristics, but normalises text on commit.
+* text=auto
+
+# Pin LF across the board — matches the existing state of every file in the
+# repo today, including the .sln. Prevents CRLF drift when contributors edit
+# from Windows without an EOL-aware editor.
+*.cs        text eol=lf
+*.csproj    text eol=lf
+*.sln       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.xml       text eol=lf
+*.props     text eol=lf
+*.targets   text eol=lf
+*.editorconfig  text eol=lf
+*.gitattributes text eol=lf
+
+# Binary — never touch.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.snk       binary
+*.nupkg     binary
+*.dll       binary
+*.exe       binary
+*.pdb       binary

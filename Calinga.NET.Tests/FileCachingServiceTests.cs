@@ -10,7 +10,7 @@ using Calinga.NET.Infrastructure;
 using Calinga.NET.Infrastructure.Exceptions;
 using FluentAssertions;
 using Moq;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace Calinga.NET.Tests
 {
@@ -48,7 +48,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -105,7 +105,7 @@ namespace Calinga.NET.Tests
             var prevFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.prev");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -128,7 +128,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -153,7 +153,7 @@ namespace Calinga.NET.Tests
             var result = await _service.GetTranslations(language, false);
 
             // Assert
-            Assert.IsFalse(result.FoundInCache);
+            Assert.IsFalse(result.FoundTranslationsInCache);
             Assert.AreEqual(0, result.Result.Count);
         }
 
@@ -165,13 +165,13 @@ namespace Calinga.NET.Tests
             var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
             var translations = new Dictionary<string, string> { { "key1", "value1" } };
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonSerializer.Serialize(translations));
 
             // Act
             var result = await _service.GetTranslations(language, false);
 
             // Assert
-            Assert.IsTrue(result.FoundInCache);
+            Assert.IsTrue(result.FoundTranslationsInCache);
             CollectionAssert.AreEquivalent(translations.ToList(), result.Result.ToList());
         }
 
@@ -185,7 +185,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).Throws<IOException>();
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<TranslationsNotAvailableException>(() => _service.GetTranslations(language, false));
+            await Assert.ThrowsExactlyAsync<TranslationsNotAvailableException>(() => _service.GetTranslations(language, false));
         }
 
         [TestMethod]
@@ -210,7 +210,7 @@ namespace Calinga.NET.Tests
             var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "Languages.json");
             var languages = new List<Language> { new Language { Name = "en" } };
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonConvert.SerializeObject(languages));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(JsonSerializer.Serialize(languages));
 
             // Act
             var result = await _service.GetLanguages();
@@ -231,7 +231,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).Throws<IOException>();
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<TranslationsNotAvailableException>(() => _service.GetLanguages());
+            await Assert.ThrowsExactlyAsync<TranslationsNotAvailableException>(() => _service.GetLanguages());
         }
 
         [TestMethod]
@@ -272,7 +272,7 @@ namespace Calinga.NET.Tests
                 "Languages.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(languages));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(languages));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -310,7 +310,7 @@ namespace Calinga.NET.Tests
             var invalidLanguage = "../en";
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<ArgumentException>(() => _service.StoreTranslationsAsync(invalidLanguage, translations));
+            await Assert.ThrowsExactlyAsync<ArgumentException>(() => _service.StoreTranslationsAsync(invalidLanguage, translations));
         }
 
         [TestMethod]
@@ -363,7 +363,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync("{invalid json}");
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<Newtonsoft.Json.JsonReaderException>(() => _service.GetTranslations(language, false));
+            await Assert.ThrowsExactlyAsync<JsonException>(() => _service.GetTranslations(language, false));
         }
 
         [TestMethod]
@@ -375,7 +375,7 @@ namespace Calinga.NET.Tests
             _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync("{invalid json}");
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<Newtonsoft.Json.JsonReaderException>(() => _service.GetLanguages());
+            await Assert.ThrowsExactlyAsync<JsonException>(() => _service.GetLanguages());
         }
 
         [TestMethod]
@@ -432,7 +432,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null));
 
@@ -470,7 +470,7 @@ namespace Calinga.NET.Tests
             IReadOnlyDictionary<string, string> translations = null;
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => _service.StoreTranslationsAsync(language, translations));
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => _service.StoreTranslationsAsync(language, translations));
         }
 
         [TestMethod]
@@ -480,7 +480,7 @@ namespace Calinga.NET.Tests
             IEnumerable<Language> languages = null;
 
             // Act & Assert
-            await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => _service.StoreLanguagesAsync(languages));
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => _service.StoreLanguagesAsync(languages));
         }
 
         [TestMethod]
@@ -496,7 +496,7 @@ namespace Calinga.NET.Tests
             var result = await _service.GetTranslations(language, false);
 
             // Assert
-            Assert.IsTrue(result.FoundInCache);
+            Assert.IsTrue(result.FoundTranslationsInCache);
             Assert.AreEqual(0, result.Result.Count);
         }
 
@@ -526,7 +526,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(translations));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null)).Throws<IOException>();
             _fileSystem.Setup(fs => fs.FileExists(tempFilePath)).Returns(true);
@@ -548,7 +548,7 @@ namespace Calinga.NET.Tests
             var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "Languages.json.temp");
             _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
             _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
-            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonConvert.SerializeObject(languages));
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(languages));
             _fileSystem.Setup(fs => fs.FileExists(path)).Returns(false);
             _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, path, null)).Throws<IOException>();
             _fileSystem.Setup(fs => fs.FileExists(tempFilePath)).Returns(true);
@@ -644,7 +644,7 @@ namespace Calinga.NET.Tests
 
                 // Verify file was written correctly
                 var result = await service.GetTranslations("de", false);
-                result.FoundInCache.Should().BeTrue();
+                result.FoundTranslationsInCache.Should().BeTrue();
                 result.Result.Count.Should().Be(2);
             }
             finally
@@ -694,6 +694,181 @@ namespace Calinga.NET.Tests
                 if (Directory.Exists(tempDir))
                     Directory.Delete(tempDir, true);
             }
+        }
+
+        #endregion
+
+        #region Newtonsoft → System.Text.Json compatibility
+
+        [TestMethod]
+        public async Task GetTranslations_ReadsNewtonsoftEraFile_Successfully()
+        {
+            // Arrange — exact byte shape Newtonsoft 13 produced for Dictionary<string, string>:
+            // compact, double-quoted keys/values, no whitespace, no BOM. Pinning a literal here
+            // (instead of round-tripping through System.Text.Json) is the whole point — proves
+            // existing on-disk caches written by 2.1.x are still readable after the JSON-library
+            // swap in 2.2.0.
+            const string newtonsoftEraJson = "{\"key1\":\"value1\",\"key2\":\"value2\"}";
+            var language = "EN";
+            var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(newtonsoftEraJson);
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundTranslationsInCache.Should().BeTrue();
+            result.Result.Should().HaveCount(2);
+            result.Result["key1"].Should().Be("value1");
+            result.Result["key2"].Should().Be("value2");
+        }
+
+        [TestMethod]
+        public async Task GetLanguages_ReadsNewtonsoftEraFile_Successfully()
+        {
+            // Arrange — Newtonsoft 13 default for List<Language>: PascalCase property names,
+            // no whitespace, double-quoted strings, JSON booleans lowercase. Same rationale as
+            // the translations test — pin a literal so any future serializer-options change
+            // (e.g. JsonNamingPolicy.CamelCase) surfaces as a failing test, not a broken cache.
+            const string newtonsoftEraJson = "[{\"Name\":\"en\",\"IsReference\":true},{\"Name\":\"de\",\"IsReference\":false}]";
+            var path = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "Languages.json");
+            _fileSystem.Setup(fs => fs.FileExists(path)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(path)).ReturnsAsync(newtonsoftEraJson);
+
+            // Act
+            var result = await _service.GetLanguages();
+
+            // Assert
+            result.FoundInCache.Should().BeTrue();
+            result.Result.Should().HaveCount(2);
+            result.Result.Should().ContainSingle(l => l.Name == "en" && l.IsReference);
+            result.Result.Should().ContainSingle(l => l.Name == "de" && !l.IsReference);
+        }
+
+        #endregion
+
+        #region ETag sidecar
+
+        [TestMethod]
+        public async Task StoreTranslationsAsync_WritesETagSidecar_WhenETagProvided()
+        {
+            // Arrange — sidecar lives next to the translations file with the same
+            // language-derived base name and a .etag extension. We must write the
+            // tag verbatim so it round-trips byte-for-byte into the next
+            // If-None-Match header.
+            const string etag = "\"abc123\"";
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
+            _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
+            _fileSystem.Setup(fs => fs.WriteAllTextAsync(etagPath, etag)).Returns(Task.CompletedTask);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(false);
+            _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, jsonPath, null));
+
+            // Act
+            await _service.StoreTranslationsAsync(language, translations, etag);
+
+            // Assert
+            _fileSystem.Verify(fs => fs.WriteAllTextAsync(etagPath, etag), Times.Once);
+        }
+
+        [TestMethod]
+        public async Task StoreTranslationsAsync_DoesNotWriteSidecar_WhenETagIsNull()
+        {
+            // Arrange — server returned 200 but emitted no ETag header. We must
+            // not create an empty/garbage sidecar that would later be sent as a
+            // bogus If-None-Match.
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var tempFilePath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json.temp");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            _fileSystem.Setup(fs => fs.CreateDirectory(It.IsAny<string>()));
+            _fileSystem.Setup(fs => fs.WriteAllTextAsync(tempFilePath, It.IsAny<string>())).Returns(Task.CompletedTask);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(tempFilePath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(false);
+            _fileSystem.Setup(fs => fs.ReplaceFile(tempFilePath, jsonPath, null));
+
+            // Act
+            await _service.StoreTranslationsAsync(language, translations, null);
+
+            // Assert
+            _fileSystem.Verify(fs => fs.WriteAllTextAsync(etagPath, It.IsAny<string>()), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ReadsETagFromSidecar_WhenSidecarExists()
+        {
+            // Arrange — translations file and sidecar both present. The cache
+            // response must surface both so the caller can revalidate.
+            const string etag = "\"deadbeef\"";
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(jsonPath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(etagPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(etagPath)).ReturnsAsync(etag);
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundTranslationsInCache.Should().BeTrue();
+            result.ETag.Should().Be(etag);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ReturnsCacheMiss_WhenJsonMissingButETagSidecarPresent()
+        {
+            // Arrange — orphan sidecar: the .etag file exists on disk but its
+            // companion .json does not. Can happen after a partial write,
+            // tampered cache dir, or a crash mid-store. The cache must report
+            // a clean miss (no exception) so the higher layer falls through to
+            // a normal HTTP GET without trying to send a stale If-None-Match.
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(false);
+            _fileSystem.Setup(fs => fs.FileExists(etagPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(etagPath)).ReturnsAsync("\"orphan\"");
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundTranslationsInCache.Should().BeFalse();
+            result.ETag.Should().BeNull();
+            // Sidecar was never read (no point — without a body we can't safely revalidate).
+            _fileSystem.Verify(fs => fs.ReadAllTextAsync(etagPath), Times.Never);
+        }
+
+        [TestMethod]
+        public async Task GetTranslations_ETagInLocalCacheIsNull_WhenSidecarMissing()
+        {
+            // Arrange — pre-ETag cache directory (older clients): translations
+            // file exists, sidecar does not. The cache must still return the
+            // translations and report ETag = null rather than erroring.
+            var language = "en";
+            var jsonPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.json");
+            var etagPath = Path.Combine(_settings.CacheDirectory, _settings.Organization, _settings.Team, _settings.Project, "EN.etag");
+            var translations = new Dictionary<string, string> { { "key1", "value1" } };
+            _fileSystem.Setup(fs => fs.FileExists(jsonPath)).Returns(true);
+            _fileSystem.Setup(fs => fs.ReadAllTextAsync(jsonPath)).ReturnsAsync(JsonSerializer.Serialize(translations));
+            _fileSystem.Setup(fs => fs.FileExists(etagPath)).Returns(false);
+
+            // Act
+            var result = await _service.GetTranslations(language, false);
+
+            // Assert
+            result.FoundTranslationsInCache.Should().BeTrue();
+            result.ETag.Should().BeNull();
         }
 
         #endregion
