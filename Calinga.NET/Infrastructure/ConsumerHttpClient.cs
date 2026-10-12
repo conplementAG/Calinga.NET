@@ -34,11 +34,9 @@ namespace Calinga.NET.Infrastructure
             _httpClient = httpClient;
         }
 
-        // The api-token is a secret and must never be written to the HttpClient's
-        // DefaultRequestHeaders: callers can share their HttpClient (IHttpClientFactory,
-        // singleton) across hosts, which would leak the token to every host the client
-        // talks to. Set it per-request on the HttpRequestMessage instead, so it only ever
-        // travels on requests this library issues to the Consumer API.
+        // Set auth/version headers per request rather than on DefaultRequestHeaders: the
+        // HttpClient may be caller-owned and shared across hosts, and headers left on it
+        // would ride along to every host it talks to.
         private HttpRequestMessage CreateRequest(HttpMethod method, string url)
         {
             var request = new HttpRequestMessage(method, url);
@@ -129,10 +127,9 @@ namespace Calinga.NET.Infrastructure
 
                 return DeserializeLanguages(responseBody);
             }
-            // A malformed or hostile response body makes the rigid field access in
-            // DeserializeLanguages throw JsonException / KeyNotFoundException /
-            // InvalidOperationException. Wrap those too, so callers only ever see
-            // LanguagesNotAvailableException and the reference-language fallback keeps working.
+            // A malformed body makes DeserializeLanguages throw JsonException /
+            // KeyNotFoundException / InvalidOperationException; wrap those alongside
+            // HttpRequestException so the caller only deals with LanguagesNotAvailableException.
             catch (Exception ex) when (ex is HttpRequestException || ex is JsonException
                 || ex is KeyNotFoundException || ex is InvalidOperationException)
             {
