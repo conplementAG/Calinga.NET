@@ -120,20 +120,40 @@ namespace Calinga.NET.Infrastructure
 
         public async Task<IEnumerable<Language>> GetLanguagesAsync()
         {
+            string responseBody;
             try
             {
                 var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
-                var responseBody = await GetResponseBody(url).ConfigureAwait(false);
-
+                responseBody = await GetResponseBody(url).ConfigureAwait(false);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The Consumer API could not be reached or returned an error status. "
+                    + "Check your network connection, the ConsumerApiBaseUrl, and that your ApiToken is valid.", ex);
+            }
+            
+            try
+            {
                 return DeserializeLanguages(responseBody);
             }
-            // A malformed body makes DeserializeLanguages throw JsonException /
-            // KeyNotFoundException / InvalidOperationException; wrap those alongside
-            // HttpRequestException so the caller only deals with LanguagesNotAvailableException.
-            catch (Exception ex) when (ex is HttpRequestException || ex is JsonException
-                || ex is KeyNotFoundException || ex is InvalidOperationException)
+            catch (JsonException ex)
             {
-                throw new LanguagesNotAvailableException("Failed to fetch languages", ex);
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The server response was not valid JSON (e.g. an error page or proxy output). "
+                    + "Check that ConsumerApiBaseUrl points at the Calinga Consumer API.", ex);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The response was missing an expected field (tag, name, or isReference). "
+                    + "Check that Organization, Team, and Project are correct and that this client version matches the API.", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The response was not in the expected format (an array of language objects). "
+                    + "Check that Organization, Team, and Project are correct and that this client version matches the API.", ex);
             }
         }
 

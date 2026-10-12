@@ -365,10 +365,9 @@ namespace Calinga.NET.Tests.Infrastructure
         }
 
         [TestMethod]
-        public async Task GetLanguagesAsync_OnMalformedJson_ThrowsLanguagesNotAvailable()
+        public async Task GetLanguagesAsync_OnMalformedJson_ThrowsLanguagesNotAvailable_WithJsonCause()
         {
-            // Arrange — a malformed body (JsonException) comes back wrapped as
-            // LanguagesNotAvailableException so the reference-language fallback still works.
+            // Arrange — invalid JSON: the server was reachable but the body can't be read.
             var mockMessageHandler = new MockHttpMessageHandler();
             mockMessageHandler
                 .When(HttpMethod.Get, "*")
@@ -378,15 +377,16 @@ namespace Calinga.NET.Tests.Infrastructure
             // Act
             Func<Task> act = async () => await sut.GetLanguagesAsync().ConfigureAwait(false);
 
-            // Assert
-            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            // Assert — the cause-specific message and the preserved inner exception let devs react.
+            var thrown = (await act.Should().ThrowAsync<LanguagesNotAvailableException>()).Which;
+            thrown.Message.Should().Contain("not valid JSON");
+            thrown.InnerException.Should().BeAssignableTo<JsonException>();
         }
 
         [TestMethod]
-        public async Task GetLanguagesAsync_OnMissingField_ThrowsLanguagesNotAvailable()
+        public async Task GetLanguagesAsync_OnMissingField_ThrowsLanguagesNotAvailable_WithMissingFieldCause()
         {
-            // Arrange — valid JSON array but the entries lack the expected fields; the resulting
-            // KeyNotFoundException also comes back wrapped as LanguagesNotAvailableException.
+            // Arrange — valid JSON array but entries lack the expected fields (KeyNotFoundException).
             var mockMessageHandler = new MockHttpMessageHandler();
             mockMessageHandler
                 .When(HttpMethod.Get, "*")
@@ -396,8 +396,10 @@ namespace Calinga.NET.Tests.Infrastructure
             // Act
             Func<Task> act = async () => await sut.GetLanguagesAsync().ConfigureAwait(false);
 
-            // Assert
-            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+            // Assert — distinct message for the missing-field cause, original exception preserved.
+            var thrown = (await act.Should().ThrowAsync<LanguagesNotAvailableException>()).Which;
+            thrown.Message.Should().Contain("missing an expected field");
+            thrown.InnerException.Should().BeOfType<KeyNotFoundException>();
         }
 
         private static CalingaServiceSettings CreateSettings(bool isDevMode = false)
