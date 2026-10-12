@@ -14,6 +14,11 @@ namespace Calinga.NET.Infrastructure
     public class ConsumerHttpClient : IConsumerHttpClient
     {
         private const string API_TOKEN_HEADER_NAME = "api-token";
+        private const string CLIENT_VERSION_HEADER_NAME = "Client-Version";
+
+        private static readonly string ClientVersion =
+            $"Calinga.Net/{typeof(ConsumerHttpClient).Assembly.GetName().Version}";
+
         private readonly HttpClient _httpClient;
 
         private readonly CalingaServiceSettings _settings;
@@ -27,21 +32,17 @@ namespace Calinga.NET.Infrastructure
         {
             _settings = settings;
             _httpClient = httpClient;
-
-            EnsureApiTokenHeaderIsSet();
-            AddClientVersionHeader();
         }
-        
-        private void AddClientVersionHeader()
+
+        // Set auth/version headers per request rather than on DefaultRequestHeaders: the
+        // HttpClient may be caller-owned and shared across hosts, and headers left on it
+        // would ride along to every host it talks to.
+        private HttpRequestMessage CreateRequest(HttpMethod method, string url)
         {
-            const string clientVersionHeaderName = "Client-Version";
-  
-            var clientVersion = $"Calinga.Net/{typeof(ConsumerHttpClient).Assembly.GetName().Version}";
-            
-            if (!_httpClient.DefaultRequestHeaders.Contains(clientVersionHeaderName))
-            {
-                _httpClient.DefaultRequestHeaders.Add(clientVersionHeaderName, clientVersion);
-            }
+            var request = new HttpRequestMessage(method, url);
+            request.Headers.TryAddWithoutValidation(API_TOKEN_HEADER_NAME, _settings.ApiToken);
+            request.Headers.TryAddWithoutValidation(CLIENT_VERSION_HEADER_NAME, ClientVersion);
+            return request;
         }
 
         public Task<TranslationsHttpResponse> GetTranslationsAsync(string language) => GetTranslationsAsync(language, (string?)null);
@@ -50,9 +51,9 @@ namespace Calinga.NET.Infrastructure
         {
             var queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
             var url = Invariant(
-                $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
+                $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{Uri.EscapeDataString(language)}{queryParameter}");
 
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            using var request = CreateRequest(HttpMethod.Get, url);
             if (!string.IsNullOrEmpty(ifNoneMatch))
             {
                 // TryAddWithoutValidation lets us echo the server's tag byte-for-byte, including
@@ -90,12 +91,13 @@ namespace Calinga.NET.Infrastructure
         {
             var queryParameter = _settings.IncludeDrafts ? Invariant($"?includeDrafts={_settings.IncludeDrafts}") : string.Empty;
             var url = Invariant(
-                $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{language}{queryParameter}");
+                $"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages/{Uri.EscapeDataString(language)}{queryParameter}");
 
             var requestBody = JsonSerializer.Serialize(new { keyNames = keys });
-            using var content = new StringContent(requestBody, System.Text.Encoding.UTF8, "application/json");
+            using var request = CreateRequest(HttpMethod.Post, url);
+            request.Content = new StringContent(requestBody, System.Text.Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(url, content).ConfigureAwait(false);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
 
             switch (response.StatusCode)
             {
@@ -118,16 +120,40 @@ namespace Calinga.NET.Infrastructure
 
         public async Task<IEnumerable<Language>> GetLanguagesAsync()
         {
+            string responseBody;
             try
             {
                 var url = Invariant($"{_settings.ConsumerApiBaseUrl}/{_settings.Organization}/{_settings.Team}/{_settings.Project}/languages");
-                var responseBody = await GetResponseBody(url).ConfigureAwait(false);
-
-                return DeserializeLanguages(responseBody);
+                responseBody = await GetResponseBody(url).ConfigureAwait(false);
             }
             catch (HttpRequestException ex)
             {
-                throw new LanguagesNotAvailableException("Failed to fetch languages", ex);
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The Consumer API could not be reached or returned an error status. "
+                    + "Check your network connection, the ConsumerApiBaseUrl, and that your ApiToken is valid.", ex);
+            }
+            
+            try
+            {
+                return DeserializeLanguages(responseBody);
+            }
+            catch (JsonException ex)
+            {
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The server response was not valid JSON (e.g. an error page or proxy output). "
+                    + "Check that ConsumerApiBaseUrl points at the Calinga Consumer API.", ex);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The response was missing an expected field (tag, name, or isReference). "
+                    + "Check that Organization, Team, and Project are correct and that this client version matches the API.", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new LanguagesNotAvailableException(
+                    "Failed to fetch languages. The response was not in the expected format (an array of language objects). "
+                    + "Check that Organization, Team, and Project are correct and that this client version matches the API.", ex);
             }
         }
 
@@ -135,7 +161,8 @@ namespace Calinga.NET.Infrastructure
 
         private async Task<string> GetResponseBody(string url)
         {
-            var response = await _httpClient.GetAsync(url).ConfigureAwait(false);
+            using var request = CreateRequest(HttpMethod.Get, url);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -168,14 +195,6 @@ namespace Calinga.NET.Infrastructure
                     IsReference = l.GetProperty("isReference").GetBoolean()
                 };
             }).ToList();
-        }
-
-        private void EnsureApiTokenHeaderIsSet()
-        {
-            if (!_httpClient.DefaultRequestHeaders.Contains(API_TOKEN_HEADER_NAME))
-            {
-                _httpClient.DefaultRequestHeaders.Add(API_TOKEN_HEADER_NAME, _settings.ApiToken);
-            }
         }
 
         #endregion private static Methods
