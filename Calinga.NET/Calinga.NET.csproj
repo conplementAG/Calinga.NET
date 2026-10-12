@@ -12,7 +12,7 @@
         <PackageProjectUrl>https://github.com/conplementAG/Calinga.NET</PackageProjectUrl>
         <RepositoryUrl>https://github.com/conplementAG/Calinga.NET.git</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <Version>2.2.0</Version>
+        <Version>2.2.1</Version>
         <PackageReleaseNotes>
 ## New Features
 - Added `GetTranslationsAsync(string language, IEnumerable&lt;string&gt; keys)` to fetch a subset of translations for a given language without downloading the full dictionary.

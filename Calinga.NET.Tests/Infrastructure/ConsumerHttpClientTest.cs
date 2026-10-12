@@ -304,6 +304,103 @@ namespace Calinga.NET.Tests.Infrastructure
             response.Translations.Should().BeEquivalentTo(new Dictionary<string, string> { { "k1", "v1" } });
         }
 
+        [TestMethod]
+        public async Task GetTranslationsAsync_SendsApiToken_AsPerRequestHeader()
+        {
+            // Arrange — the secret api-token must travel on the request, so the server authenticates.
+            HttpRequestMessage? capturedRequest = null;
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .With(req => { capturedRequest = req; return true; })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            capturedRequest.Should().NotBeNull();
+            capturedRequest!.Headers.GetValues("api-token").Should().ContainSingle()
+                .Which.Should().Be(_settings.ApiToken);
+            capturedRequest.Headers.GetValues("Client-Version").Should().ContainSingle()
+                .Which.Should().StartWith("Calinga.Net/");
+        }
+
+        [TestMethod]
+        public void Constructor_DoesNotBrandCallerHttpClient_WithApiToken()
+        {
+            // Arrange — a caller-supplied HttpClient (e.g. from IHttpClientFactory) may be shared
+            // with other hosts. The library must never write the secret to DefaultRequestHeaders,
+            // or the token would leak on every request that client makes to any host.
+            var httpClient = new HttpClient(new MockHttpMessageHandler());
+
+            // Act
+            _ = new ConsumerHttpClient(_settings, httpClient);
+
+            // Assert
+            httpClient.DefaultRequestHeaders.Contains("api-token").Should().BeFalse();
+            httpClient.DefaultRequestHeaders.Contains("Client-Version").Should().BeFalse();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_EscapesLanguage_InRequestUrl()
+        {
+            // Arrange — a language value carrying URL metacharacters must be percent-encoded so it
+            // cannot inject query parameters (e.g. forcing includeDrafts) or manipulate the path.
+            HttpRequestMessage? capturedRequest = null;
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .With(req => { capturedRequest = req; return true; })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("en?includeDrafts=true").ConfigureAwait(false);
+
+            // Assert — the injected query delimiter is encoded, keeping everything in the path segment.
+            capturedRequest.Should().NotBeNull();
+            capturedRequest!.RequestUri!.AbsoluteUri.Should().EndWith("/languages/en%3FincludeDrafts%3Dtrue");
+            capturedRequest.RequestUri.Query.Should().BeEmpty();
+        }
+
+        [TestMethod]
+        public async Task GetLanguagesAsync_OnMalformedJson_ThrowsLanguagesNotAvailable()
+        {
+            // Arrange — a malformed/hostile body must not escape as a raw JsonException;
+            // GetLanguagesAsync must wrap it so the reference-language fallback still works.
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", "{ not json");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetLanguagesAsync().ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+        }
+
+        [TestMethod]
+        public async Task GetLanguagesAsync_OnMissingField_ThrowsLanguagesNotAvailable()
+        {
+            // Arrange — well-formed JSON array but the documents lack the expected fields, so the
+            // rigid GetProperty access throws KeyNotFoundException. It must be wrapped as well.
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", @"[ { ""unexpected"": ""value"" } ]");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetLanguagesAsync().ConfigureAwait(false);
+
+            // Assert
+            await act.Should().ThrowAsync<LanguagesNotAvailableException>();
+        }
+
         private static CalingaServiceSettings CreateSettings(bool isDevMode = false)
         {
             return new CalingaServiceSettings
@@ -314,7 +411,7 @@ namespace Calinga.NET.Tests.Infrastructure
 
                 Project = "SampleSDK",
 
-                ApiToken = "761dc484a4051e1290c7d48574e09978",
+                ApiToken = "test-api-token",
 
                 IncludeDrafts = false,
 
