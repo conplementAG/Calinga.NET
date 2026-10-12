@@ -14,6 +14,17 @@
         <RepositoryType>git</RepositoryType>
         <Version>2.3.0</Version>
         <PackageReleaseNotes>
+# 2.3.0
+
+## Security
+- The `api-token` (and `Client-Version`) header is now set per request instead of on `HttpClient.DefaultRequestHeaders`. A caller-supplied `HttpClient` (e.g. from `IHttpClientFactory` or a singleton) is no longer branded with the token, so the secret can no longer travel to other hosts that client talks to.
+- The `language` value is now URL-encoded before being placed in the request URL, preventing query-parameter/fragment injection (e.g. a crafted language value forcing `includeDrafts`).
+
+## Changes
+- `GetLanguagesAsync()` no longer leaks a raw `JsonException`, `KeyNotFoundException`, or `InvalidOperationException` when the server returns a malformed languages response. All such failures are now reported as `LanguagesNotAvailableException` with a cause-specific message (unreachable API, invalid JSON, missing field, or unexpected shape), and the original exception is preserved as the inner exception.
+
+# 2.2.0
+
 ## New Features
 - Added `GetTranslationsAsync(string language, IEnumerable&lt;string&gt; keys)` to fetch a subset of translations for a given language without downloading the full dictionary.
 - Every call requesting a specific list of keys issues a POST to the Consumer API (`POST {ConsumerApiBaseUrl}/{org}/{team}/{project}/languages/{language}`) with a JSON body `{ "keyNames": [...] }`. The cache is never consulted and never written for keyed calls, so the result is always server-fresh.
