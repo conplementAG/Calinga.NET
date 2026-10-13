@@ -499,7 +499,7 @@ namespace Calinga.NET.Tests
                 Organization = "SDK",
                 Team = "Default Team",
                 Project = "SampleSDK",
-                ApiToken = "761dc484a4051e1290c7d48574e09978",
+                ApiToken = "test-api-token",
                 IncludeDrafts = false,
                 IsDevMode = isDevMode,
                 CacheDirectory = AppDomain.CurrentDomain.BaseDirectory

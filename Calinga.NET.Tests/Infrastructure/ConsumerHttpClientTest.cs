@@ -304,6 +304,104 @@ namespace Calinga.NET.Tests.Infrastructure
             response.Translations.Should().BeEquivalentTo(new Dictionary<string, string> { { "k1", "v1" } });
         }
 
+        [TestMethod]
+        public async Task GetTranslationsAsync_SendsApiToken_AsPerRequestHeader()
+        {
+            // Arrange — api-token travels on the request itself for authentication.
+            HttpRequestMessage? capturedRequest = null;
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .With(req => { capturedRequest = req; return true; })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("de").ConfigureAwait(false);
+
+            // Assert
+            capturedRequest.Should().NotBeNull();
+            capturedRequest!.Headers.GetValues("api-token").Should().ContainSingle()
+                .Which.Should().Be(_settings.ApiToken);
+            capturedRequest.Headers.GetValues("Client-Version").Should().ContainSingle()
+                .Which.Should().StartWith("Calinga.Net/");
+        }
+
+        [TestMethod]
+        public void Constructor_DoesNotBrandCallerHttpClient_WithApiToken()
+        {
+            // Arrange — a caller-supplied HttpClient may be shared across hosts, so the token
+            // stays off DefaultRequestHeaders to avoid leaking onto unrelated requests.
+            var httpClient = new HttpClient(new MockHttpMessageHandler());
+
+            // Act
+            _ = new ConsumerHttpClient(_settings, httpClient);
+
+            // Assert
+            httpClient.DefaultRequestHeaders.Contains("api-token").Should().BeFalse();
+            httpClient.DefaultRequestHeaders.Contains("Client-Version").Should().BeFalse();
+        }
+
+        [TestMethod]
+        public async Task GetTranslationsAsync_EscapesLanguage_InRequestUrl()
+        {
+            // Arrange — a language value with URL metacharacters gets percent-encoded, so it can't
+            // inject a query parameter (e.g. forcing includeDrafts) or alter the path.
+            HttpRequestMessage? capturedRequest = null;
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .With(req => { capturedRequest = req; return true; })
+                .Respond("application/json", "{}");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            await sut.GetTranslationsAsync("en?includeDrafts=true").ConfigureAwait(false);
+
+            // Assert
+            capturedRequest.Should().NotBeNull();
+            capturedRequest!.RequestUri!.AbsoluteUri.Should().EndWith("/languages/en%3FincludeDrafts%3Dtrue");
+            capturedRequest.RequestUri.Query.Should().BeEmpty();
+        }
+
+        [TestMethod]
+        public async Task GetLanguagesAsync_OnMalformedJson_ThrowsLanguagesNotAvailable_WithJsonCause()
+        {
+            // Arrange — invalid JSON: the server was reachable but the body can't be read.
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", "{ not json");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetLanguagesAsync().ConfigureAwait(false);
+
+            // Assert — the cause-specific message and the preserved inner exception let devs react.
+            var thrown = (await act.Should().ThrowAsync<LanguagesNotAvailableException>()).Which;
+            thrown.Message.Should().Contain("not valid JSON");
+            thrown.InnerException.Should().BeAssignableTo<JsonException>();
+        }
+
+        [TestMethod]
+        public async Task GetLanguagesAsync_OnMissingField_ThrowsLanguagesNotAvailable_WithMissingFieldCause()
+        {
+            // Arrange — valid JSON array but entries lack the expected fields (KeyNotFoundException).
+            var mockMessageHandler = new MockHttpMessageHandler();
+            mockMessageHandler
+                .When(HttpMethod.Get, "*")
+                .Respond("application/json", @"[ { ""unexpected"": ""value"" } ]");
+            var sut = new ConsumerHttpClient(_settings, new HttpClient(mockMessageHandler));
+
+            // Act
+            Func<Task> act = async () => await sut.GetLanguagesAsync().ConfigureAwait(false);
+
+            // Assert — distinct message for the missing-field cause, original exception preserved.
+            var thrown = (await act.Should().ThrowAsync<LanguagesNotAvailableException>()).Which;
+            thrown.Message.Should().Contain("missing an expected field");
+            thrown.InnerException.Should().BeOfType<KeyNotFoundException>();
+        }
+
         private static CalingaServiceSettings CreateSettings(bool isDevMode = false)
         {
             return new CalingaServiceSettings
@@ -314,7 +412,7 @@ namespace Calinga.NET.Tests.Infrastructure
 
                 Project = "SampleSDK",
 
-                ApiToken = "761dc484a4051e1290c7d48574e09978",
+                ApiToken = "test-api-token",
 
                 IncludeDrafts = false,
 
